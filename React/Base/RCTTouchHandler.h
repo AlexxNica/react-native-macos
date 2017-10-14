@@ -7,21 +7,19 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTFrameUpdate.h>
 
 @class RCTBridge;
 
-@interface RCTTouchHandler : NSGestureRecognizer
+@interface RCTTouchHandler : UIGestureRecognizer
 
 - (instancetype)initWithBridge:(RCTBridge *)bridge NS_DESIGNATED_INITIALIZER;
 
-- (void)attachToView:(NSView *)view;
-- (void)detachFromView:(NSView *)view;
+- (void)attachToView:(UIView *)view;
+- (void)detachFromView:(UIView *)view;
 
 - (void)cancel;
-
-- (void)mouseMoved:(NSEvent *)theEvent;
 
 @end

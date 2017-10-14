@@ -9,10 +9,9 @@
 
 #import <tgmath.h>
 
-#import <AppKit/AppKit.h>
-
 #import <CoreGraphics/CoreGraphics.h>
 #import <Foundation/Foundation.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTAssert.h>
 #import <React/RCTDefines.h>
@@ -79,33 +78,26 @@ RCT_EXTERN BOOL RCTRunningInTestEnvironment(void);
 RCT_EXTERN BOOL RCTRunningInAppExtension(void);
 
 // Returns the shared UIApplication instance, or nil if running in an App Extension
-RCT_EXTERN NSApplication *__nullable RCTSharedApplication(void);
+RCT_EXTERN UIApplication *__nullable RCTSharedApplication(void);
 
 // Returns the current main window, useful if you need to access the root view
-// or view controller, e.g. to present a modal view controller or alert.
-RCT_EXTERN NSWindow *__nullable RCTKeyWindow(void);
+// or view controller
+RCT_EXTERN UIWindow *__nullable RCTKeyWindow(void);
 
 // Returns the presented view controller, useful if you need
 // e.g. to present a modal view controller or alert over it
-RCT_EXTERN NSViewController *__nullable RCTPresentedViewController(void);
+RCT_EXTERN UIViewController *__nullable RCTPresentedViewController(void);
 
 // Does this device support force touch (aka 3D Touch)?
 RCT_EXTERN BOOL RCTForceTouchAvailable(void);
-
-// Return a UIAlertView initialized with the given values
-// or nil if running in an app extension
-RCT_EXTERN NSAlert *__nullable RCTAlertView(NSString *title,
-                                            NSString *__nullable message,
-                                            id __nullable delegate,
-                                            NSString *__nullable cancelButtonTitle,
-                                            NSArray<NSString *> *__nullable otherButtonTitles);
 
 // Create an NSError in the RCTErrorDomain
 RCT_EXTERN NSError *RCTErrorWithMessage(NSString *message);
 
 // Convert nil values to NSNull, and vice-versa
 #define RCTNullIfNil(value) (value ?: (id)kCFNull)
-#define RCTNilIfNull(value) (value == (id)kCFNull ? nil : value)
+#define RCTNilIfNull(value) \
+  ({ __typeof__(value) t = (value); (id)t == (id)kCFNull ? (__typeof(value))nil : t; })
 
 // Convert NaN or infinite values to zero, as these aren't JSON-safe
 RCT_EXTERN double RCTZeroIfNaN(double value);
@@ -128,7 +120,7 @@ RCT_EXTERN BOOL RCTIsLocalAssetURL(NSURL *__nullable imageURL);
 
 // Returns an UIImage for a local image asset. Returns nil if the URL
 // does not correspond to a local asset.
-RCT_EXTERN NSImage *__nullable RCTImageFromLocalAssetURL(NSURL *imageURL);
+RCT_EXTERN UIImage *__nullable RCTImageFromLocalAssetURL(NSURL *imageURL);
 
 // Creates a new, unique temporary file path with the specified extension
 RCT_EXTERN NSString *__nullable RCTTempFilePath(NSString *__nullable extension, NSError **error);

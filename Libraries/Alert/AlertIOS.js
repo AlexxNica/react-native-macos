@@ -109,7 +109,7 @@ class AlertIOS {
    * Create and display a popup alert.
    * @static
    * @method alert
-   * @param title The dialog's title.
+   * @param title The dialog's title. Passing null or '' will hide the title.
    * @param message An optional message that appears below
    *     the dialog's title.
    * @param callbackOrButtons This optional argument should
@@ -142,9 +142,6 @@ class AlertIOS {
       console.warn('AlertIOS.alert() with a 4th "type" parameter is deprecated and will be removed. Use AlertIOS.prompt() instead.');
       this.prompt(title, message, callbackOrButtons, type);
       return;
-    }
-    if (!callbackOrButtons) {
-      callbackOrButtons = [{text: 'OK'}]
     }
     this.prompt(title, message, callbackOrButtons, 'default');
   }
@@ -212,7 +209,7 @@ class AlertIOS {
       var callback = type;
       var defaultValue = message;
       RCTAlertManager.alertWithArgs({
-        title: title || undefined,
+        title: title || '',
         type: 'plain-text',
         defaultValue,
       }, (id, value) => {
@@ -245,7 +242,7 @@ class AlertIOS {
     }
 
     RCTAlertManager.alertWithArgs({
-      title: title || undefined,
+      title: title || '',
       message: message || undefined,
       buttons,
       type: type || undefined,

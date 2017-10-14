@@ -7,20 +7,20 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTDefines.h>
 
 #if RCT_DEV
 
-@interface RCTFPSGraph : NSView
+@interface RCTFPSGraph : UIView
 
 @property (nonatomic, assign, readonly) NSUInteger FPS;
 @property (nonatomic, assign, readonly) NSUInteger maxFPS;
 @property (nonatomic, assign, readonly) NSUInteger minFPS;
 
 - (instancetype)initWithFrame:(CGRect)frame
-                        color:(NSColor *)color NS_DESIGNATED_INITIALIZER;
+                        color:(UIColor *)color NS_DESIGNATED_INITIALIZER;
 
 - (void)onTick:(NSTimeInterval)timestamp;
 

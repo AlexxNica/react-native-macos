@@ -19,7 +19,7 @@
 
 - (void)updateAnimations;
 
-- (void)stepAnimations:(nonnull NSTimer *)sender;
+- (void)stepAnimations:(nonnull CADisplayLink *)displaylink;
 
 // graph
 
@@ -35,6 +35,8 @@
 - (void)connectAnimatedNodeToView:(nonnull NSNumber *)nodeTag
                           viewTag:(nonnull NSNumber *)viewTag
                          viewName:(nonnull NSString *)viewName;
+
+- (void)restoreDefaultValues:(nonnull NSNumber *)nodeTag;
 
 - (void)disconnectAnimatedNodeFromView:(nonnull NSNumber *)nodeTag
                                viewTag:(nonnull NSNumber *)viewTag;

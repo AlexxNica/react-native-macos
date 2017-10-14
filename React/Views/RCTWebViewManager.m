@@ -12,7 +12,7 @@
 #import "RCTBridge.h"
 #import "RCTUIManager.h"
 #import "RCTWebView.h"
-#import "NSView+React.h"
+#import "UIView+React.h"
 
 @interface RCTWebViewManager () <RCTWebViewDelegate>
 
@@ -26,7 +26,7 @@
 
 RCT_EXPORT_MODULE()
 
-- (NSView *)view
+- (UIView *)view
 {
   RCTWebView *webView = [RCTWebView new];
   webView.delegate = self;
@@ -65,7 +65,7 @@ RCT_EXPORT_METHOD(goBack:(nonnull NSNumber *)reactTag)
 
 RCT_EXPORT_METHOD(goForward:(nonnull NSNumber *)reactTag)
 {
-  [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, NSView *> *viewRegistry) {
+  [self.bridge.uiManager addUIBlock:^(__unused RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry) {
     id view = viewRegistry[reactTag];
     if (![view isKindOfClass:[RCTWebView class]]) {
       RCTLogError(@"Invalid view returned from registry, expecting RCTWebView, got: %@", view);
@@ -153,7 +153,7 @@ RCT_EXPORT_METHOD(startLoadWithResult:(BOOL)result lockIdentifier:(NSInteger)loc
     [_shouldStartLoadLock unlockWithCondition:0];
   } else {
     RCTLogWarn(@"startLoadWithResult invoked with invalid lockIdentifier: "
-               "got %zd, expected %zd", lockIdentifier, _shouldStartLoadLock.condition);
+               "got %lld, expected %lld", (long long)lockIdentifier, (long long)_shouldStartLoadLock.condition);
   }
 }
 

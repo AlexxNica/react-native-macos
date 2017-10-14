@@ -12,25 +12,75 @@
 'use strict';
 
 const EdgeInsetsPropType = require('EdgeInsetsPropType');
-const Platform = require('Platform');
+const PlatformViewPropTypes = require('PlatformViewPropTypes');
+const PropTypes = require('prop-types');
 const StyleSheetPropType = require('StyleSheetPropType');
 const ViewStylePropTypes = require('ViewStylePropTypes');
 
-const { PropTypes } = require('React');
 const {
   AccessibilityComponentTypes,
   AccessibilityTraits,
 } = require('ViewAccessibility');
 
-var TVViewPropTypes = {};
-if (Platform.isTVOS) {
-  TVViewPropTypes = require('TVViewPropTypes');
-}
+import type {
+  AccessibilityComponentType,
+  AccessibilityTrait,
+} from 'ViewAccessibility';
+import type {EdgeInsetsProp} from 'EdgeInsetsPropType';
+import type {TVViewProps} from 'TVViewPropTypes';
 
 const stylePropType = StyleSheetPropType(ViewStylePropTypes);
 
+export type ViewLayout = {
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+}
+
+export type ViewLayoutEvent = {
+  nativeEvent: {
+    layout: ViewLayout,
+  }
+}
+
+// There's no easy way to create a different type if(Platform.isTVOS):
+// so we must include TVViewProps
+export type ViewProps = {
+  accessible?: bool,
+  accessibilityLabel?: React$PropType$Primitive<any>,
+  accessibilityComponentType?: AccessibilityComponentType,
+  accessibilityLiveRegion?: 'none' | 'polite' | 'assertive',
+  importantForAccessibility?: 'auto'| 'yes'| 'no'| 'no-hide-descendants',
+  accessibilityTraits?: AccessibilityTrait | Array<AccessibilityTrait>,
+  accessibilityViewIsModal?: bool,
+  onAccessibilityTap?: Function,
+  onMagicTap?: Function,
+  testID?: string,
+  nativeID?: string,
+  onLayout?: (event: ViewLayoutEvent) => void,
+  onResponderGrant?: Function,
+  onResponderMove?: Function,
+  onResponderReject?: Function,
+  onResponderRelease?: Function,
+  onResponderTerminate?: Function,
+  onResponderTerminationRequest?: Function,
+  onStartShouldSetResponder?: Function,
+  onStartShouldSetResponderCapture?: Function,
+  onMoveShouldSetResponder?: Function,
+  onMoveShouldSetResponderCapture?: Function,
+  hitSlop?: EdgeInsetsProp,
+  pointerEvents?: 'box-none'| 'none'| 'box-only'| 'auto',
+  style?: stylePropType,
+  removeClippedSubviews?: bool,
+  renderToHardwareTextureAndroid?: bool,
+  shouldRasterizeIOS?: bool,
+  collapsable?: bool,
+  needsOffscreenAlphaCompositing?: bool,
+} & TVViewProps;
+
 module.exports = {
-  ...TVViewPropTypes,
+  ...PlatformViewPropTypes,
 
   /**
    * When `true`, indicates that the view is an accessibility element. By default,
@@ -74,7 +124,11 @@ module.exports = {
    *
    * @platform android
    */
-  accessibilityLiveRegion: PropTypes.oneOf(['none', 'polite', 'assertive']),
+  accessibilityLiveRegion: PropTypes.oneOf([
+    'none',
+    'polite',
+    'assertive',
+  ]),
 
   /**
    * Controls how view is important for accessibility which is if it
@@ -173,8 +227,6 @@ module.exports = {
    * Used to locate this view from native classes.
    *
    * > This disables the 'layout-only view removal' optimization for this view!
-   *
-   * @platform android
    */
   nativeID: PropTypes.string,
 
@@ -330,7 +382,12 @@ module.exports = {
    * > implement it as a `className` anyways. Using `style` or not is an
    * > implementation detail of the platform.
    */
-  pointerEvents: PropTypes.oneOf(['box-none', 'none', 'box-only', 'auto']),
+  pointerEvents: PropTypes.oneOf([
+    'box-none',
+    'none',
+    'box-only',
+    'auto',
+  ]),
   style: stylePropType,
 
   /**
@@ -407,32 +464,4 @@ module.exports = {
    * @platform android
    */
   needsOffscreenAlphaCompositing: PropTypes.bool,
-  /**
-   * Enables Dran'n'Drop Support for certain types of PboardType
-   * @platform macos
-   */
-  draggedTypes: PropTypes.arrayOf(
-    PropTypes.oneOf(['NSFilenamesPboardType', 'NSColorPboardType'])
-  ),
-  /**
-   * Desktop specific events
-   * @platform macos
-   */
-  onMouseEnter: PropTypes.func,
-  onMouseLeave: PropTypes.func,
-  onDragEnter: PropTypes.func,
-  onDragLeave: PropTypes.func,
-  onDrop: PropTypes.func,
-  onContextMenuItemClick: PropTypes.func,
-  /**
-   * Mapped to toolTip property of NSView. Used to show extra information when
-   * mouse hovering.
-   * @platform macos
-   */
-  toolTip: PropTypes.string,
-  /**
-   * Context menu
-   * @platform macos
-   */
-  contextMenu: PropTypes.array,
 };

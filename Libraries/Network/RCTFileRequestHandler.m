@@ -9,7 +9,7 @@
 
 #import "RCTFileRequestHandler.h"
 
-//#import <MobileCoreServices/MobileCoreServices.h>
+#import <MobileCoreServices/MobileCoreServices.h>
 
 #import <React/RCTUtils.h>
 

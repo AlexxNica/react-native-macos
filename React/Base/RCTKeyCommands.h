@@ -7,7 +7,7 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 @interface RCTKeyCommands : NSObject
 
@@ -17,38 +17,38 @@
  * Register a single-press keyboard command.
  */
 - (void)registerKeyCommandWithInput:(NSString *)input
-                      modifierFlags:(NSEventModifierFlags)flags
-                             action:(void (^)(NSEvent *command))block;
+                      modifierFlags:(UIKeyModifierFlags)flags
+                             action:(void (^)(UIKeyCommand *command))block;
 
 /**
  * Unregister a single-press keyboard command.
  */
 - (void)unregisterKeyCommandWithInput:(NSString *)input
-                        modifierFlags:(NSEventModifierFlags)flags;
+                        modifierFlags:(UIKeyModifierFlags)flags;
 
 /**
  * Check if a single-press command is registered.
  */
 - (BOOL)isKeyCommandRegisteredForInput:(NSString *)input
-                         modifierFlags:(NSEventModifierFlags)flags;
+                         modifierFlags:(UIKeyModifierFlags)flags;
 
 /**
  * Register a double-press keyboard command.
  */
 - (void)registerDoublePressKeyCommandWithInput:(NSString *)input
-                      modifierFlags:(NSEventModifierFlags)flags
-                             action:(void (^)(NSEvent *command))block;
+                      modifierFlags:(UIKeyModifierFlags)flags
+                             action:(void (^)(UIKeyCommand *command))block;
 
 /**
  * Unregister a double-press keyboard command.
  */
 - (void)unregisterDoublePressKeyCommandWithInput:(NSString *)input
-                        modifierFlags:(NSEventModifierFlags)flags;
+                        modifierFlags:(UIKeyModifierFlags)flags;
 
 /**
  * Check if a double-press command is registered.
  */
 - (BOOL)isDoublePressKeyCommandRegisteredForInput:(NSString *)input
-                         modifierFlags:(NSEventModifierFlags)flags;
+                         modifierFlags:(UIKeyModifierFlags)flags;
 
 @end

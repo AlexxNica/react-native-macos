@@ -7,22 +7,21 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <QuartzCore/CVDisplayLink.h>
-#import <Foundation/Foundation.h>
+#import <QuartzCore/CADisplayLink.h>
+
 #import "RCTFrameUpdate.h"
 
 #import "RCTUtils.h"
-#import "AppKit/AppKit.h"
 
 @implementation RCTFrameUpdate
 
 RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
-- (instancetype)initWithTimer:(NSTimer *)timer
+- (instancetype)initWithDisplayLink:(CADisplayLink *)displayLink
 {
   if ((self = [super init])) {
-    _timestamp = timer.fireDate.timeIntervalSince1970;
-    _deltaTime = timer.timeInterval;
+    _timestamp = displayLink.timestamp;
+    _deltaTime = displayLink.duration;
   }
   return self;
 }

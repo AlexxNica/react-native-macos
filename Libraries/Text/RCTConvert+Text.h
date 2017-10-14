@@ -11,7 +11,7 @@
 
 @interface RCTConvert (Text)
 
-+ (NSTextAutocorrectionType)UITextAutocorrectionType:(id)json;
-+ (NSTextSpellCheckingType)UITextSpellCheckingType:(id)json;
++ (UITextAutocorrectionType)UITextAutocorrectionType:(id)json;
++ (UITextSpellCheckingType)UITextSpellCheckingType:(id)json;
 
 @end

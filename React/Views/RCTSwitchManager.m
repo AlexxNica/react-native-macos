@@ -12,46 +12,36 @@
 #import "RCTBridge.h"
 #import "RCTEventDispatcher.h"
 #import "RCTSwitch.h"
-#import "NSView+React.h"
+#import "UIView+React.h"
 
 @implementation RCTSwitchManager
 
 RCT_EXPORT_MODULE()
 
-- (NSView *)view
+- (UIView *)view
 {
   RCTSwitch *switcher = [RCTSwitch new];
-//  [switcher addTarget:self
-//               action:@selector(onChange:)
-//     forControlEvents:UIControlEventValueChanged];
+  [switcher addTarget:self
+               action:@selector(onChange:)
+     forControlEvents:UIControlEventValueChanged];
   return switcher;
 }
 
-//- (void)onChange:(RCTSwitch *)sender
-//{
-//  if (sender.wasOn != sender.on) {
-//    if (sender.onChange) {
-//      sender.onChange(@{ @"value": @(sender.on) });
-//    }
-//    sender.wasOn = sender.on;
-//  }
-//}
-
-//RCT_EXPORT_VIEW_PROPERTY(onTintColor, UIColor);
-//RCT_EXPORT_VIEW_PROPERTY(tintColor, UIColor);
-//RCT_EXPORT_VIEW_PROPERTY(thumbTintColor, UIColor);
-//RCT_REMAP_VIEW_PROPERTY(value, state, NSInteger);
-RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock);
-RCT_CUSTOM_VIEW_PROPERTY(value, BOOL, RCTSwitch)
+- (void)onChange:(RCTSwitch *)sender
 {
-  if (json) {
-    BOOL on = [RCTConvert BOOL:json];
-    [view setState:on ? NSOnState : NSOffState];
-  } else {
-    [view setState:defaultView.state];
-
+  if (sender.wasOn != sender.on) {
+    if (sender.onChange) {
+      sender.onChange(@{ @"value": @(sender.on) });
+    }
+    sender.wasOn = sender.on;
   }
 }
+
+RCT_EXPORT_VIEW_PROPERTY(onTintColor, UIColor);
+RCT_EXPORT_VIEW_PROPERTY(tintColor, UIColor);
+RCT_EXPORT_VIEW_PROPERTY(thumbTintColor, UIColor);
+RCT_REMAP_VIEW_PROPERTY(value, on, BOOL);
+RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock);
 RCT_CUSTOM_VIEW_PROPERTY(disabled, BOOL, RCTSwitch)
 {
   if (json) {

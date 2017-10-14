@@ -11,7 +11,7 @@
  */
 'use strict';
 
-var React = require('React');
+var React = require('react');
 var ReactNative = require('react-native');
 var {
   Image,
@@ -19,7 +19,7 @@ var {
 } = ReactNative;
 var { TestModule } = ReactNative.NativeModules;
 
-class ImageSnapshotTest extends React.Component {
+class ImageSnapshotTest extends React.Component<{}> {
   componentDidMount() {
     if (!TestModule.verifySnapshot) {
       throw new Error('TestModule.verifySnapshot not defined.');

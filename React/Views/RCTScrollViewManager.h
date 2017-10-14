@@ -10,10 +10,12 @@
 #import <React/RCTConvert.h>
 #import <React/RCTViewManager.h>
 
-/**
- * Workaround for AppKit NSScrollView
- *
- */
-@interface RCTNativeScrollViewManager : RCTViewManager
+@interface RCTConvert (UIScrollView)
+
++ (UIScrollViewKeyboardDismissMode)UIScrollViewKeyboardDismissMode:(id)json;
+
+@end
+
+@interface RCTScrollViewManager : RCTViewManager
 
 @end

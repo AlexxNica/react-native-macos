@@ -7,7 +7,7 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTInvalidating.h>
 #import <React/RCTRootView.h>
@@ -23,7 +23,6 @@
 @property (nonatomic, readonly, strong) RCTTouchHandler *touchHandler;
 @property (nonatomic, readonly, assign) CGSize availableSize;
 
-
 @property (nonatomic, assign) BOOL passThroughTouches;
 @property (nonatomic, assign) RCTRootViewSizeFlexibility sizeFlexibility;
 
@@ -32,5 +31,4 @@
                      reactTag:(NSNumber *)reactTag
                sizeFlexiblity:(RCTRootViewSizeFlexibility)sizeFlexibility NS_DESIGNATED_INITIALIZER;
 
-- (NSColor *)backgroundColor;
 @end

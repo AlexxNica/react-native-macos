@@ -12,7 +12,7 @@
 
 require('regenerator-runtime/runtime');
 
-var React = require('React');
+var React = require('react');
 var ReactNative = require('react-native');
 
 var {

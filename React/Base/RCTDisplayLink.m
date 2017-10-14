@@ -10,6 +10,7 @@
 #import "RCTDisplayLink.h"
 
 #import <Foundation/Foundation.h>
+#import <QuartzCore/CADisplayLink.h>
 
 #import "RCTAssert.h"
 #import "RCTBridgeModule.h"
@@ -23,23 +24,16 @@
 
 @implementation RCTDisplayLink
 {
-  NSTimer * _jsTimer;
+  CADisplayLink *_jsDisplayLink;
   NSMutableSet<RCTModuleData *> *_frameUpdateObservers;
   NSRunLoop *_runLoop;
-  NSDate *_pauseStart;
-  NSDate *_previousFireDate;
 }
 
 - (instancetype)init
 {
   if ((self = [super init])) {
     _frameUpdateObservers = [NSMutableSet new];
-    _jsTimer = [NSTimer
-                   timerWithTimeInterval:RCT_TIME_PER_FRAME
-                   target:self
-                   selector:@selector(_jsThreadUpdate:)
-                   userInfo:nil
-                   repeats:YES];
+    _jsDisplayLink = [CADisplayLink displayLinkWithTarget:self selector:@selector(_jsThreadUpdate:)];
   }
 
   return self;
@@ -92,12 +86,12 @@
 - (void)addToRunLoop:(NSRunLoop *)runLoop
 {
   _runLoop = runLoop;
-  [_runLoop addTimer:_jsTimer forMode:NSRunLoopCommonModes];
+  [_jsDisplayLink addToRunLoop:runLoop forMode:NSRunLoopCommonModes];
 }
 
 - (void)invalidate
 {
-  [_jsTimer invalidate];
+  [_jsDisplayLink invalidate];
 }
 
 - (void)dispatchBlock:(dispatch_block_t)block
@@ -110,13 +104,13 @@
   }
 }
 
-- (void)_jsThreadUpdate:(__unused id)sender
+- (void)_jsThreadUpdate:(CADisplayLink *)displayLink
 {
   RCTAssertRunLoop();
 
   RCT_PROFILE_BEGIN_EVENT(RCTProfileTagAlways, @"-[RCTDisplayLink _jsThreadUpdate:]", nil);
 
-  RCTFrameUpdate *frameUpdate = [[RCTFrameUpdate alloc] initWithTimer:_jsTimer];
+  RCTFrameUpdate *frameUpdate = [[RCTFrameUpdate alloc] initWithDisplayLink:displayLink];
   for (RCTModuleData *moduleData in _frameUpdateObservers) {
     id<RCTFrameUpdateObserver> observer = (id<RCTFrameUpdateObserver>)moduleData.instance;
     if (!observer.paused) {
@@ -131,22 +125,9 @@
 
   [self updateJSDisplayLinkState];
 
-  RCTProfileImmediateEvent(RCTProfileTagAlways, @"JS Thread Tick", CACurrentMediaTime(), 'g');
+  RCTProfileImmediateEvent(RCTProfileTagAlways, @"JS Thread Tick", displayLink.timestamp, 'g');
 
   RCT_PROFILE_END_EVENT(RCTProfileTagAlways, @"objc_call");
-}
-
--(void)pauseTimer
-{
-  _pauseStart = [NSDate dateWithTimeIntervalSinceNow:0];
-  _previousFireDate = [_jsTimer fireDate];
-  [_jsTimer setFireDate:[NSDate distantFuture]];
-}
-
--(void)resumeTimer
-{
-  float pauseTime = -1 * [_pauseStart timeIntervalSinceNow];
-  [_jsTimer setFireDate:[_previousFireDate initWithTimeInterval:pauseTime sinceDate:_previousFireDate]];
 }
 
 - (void)updateJSDisplayLinkState
@@ -161,12 +142,8 @@
       break;
     }
   }
-  // TODO: investigate pausing / resuming
-//  if (pauseDisplayLink) {
-//    [self pauseTimer];
-//  } else {
-//    [self resumeTimer];
-//  }
+
+  _jsDisplayLink.paused = pauseDisplayLink;
 }
 
 @end

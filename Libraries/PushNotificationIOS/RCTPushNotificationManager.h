@@ -13,9 +13,15 @@ extern NSString *const RCTRemoteNotificationReceived;
 
 @interface RCTPushNotificationManager : RCTEventEmitter
 
-//+ (void)didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings;
+typedef void (^RCTRemoteNotificationCallback)(UIBackgroundFetchResult result);
+
+#if !TARGET_OS_TV
++ (void)didRegisterUserNotificationSettings:(UIUserNotificationSettings *)notificationSettings;
 + (void)didRegisterForRemoteNotificationsWithDeviceToken:(NSData *)deviceToken;
 + (void)didReceiveRemoteNotification:(NSDictionary *)notification;
-+ (void)didReceiveLocalNotification:(NSUserNotification *)notification;
++ (void)didReceiveRemoteNotification:(NSDictionary *)notification fetchCompletionHandler:(RCTRemoteNotificationCallback)completionHandler;
++ (void)didReceiveLocalNotification:(UILocalNotification *)notification;
++ (void)didFailToRegisterForRemoteNotificationsWithError:(NSError *)error;
+#endif
 
 @end

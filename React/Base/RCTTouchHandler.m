@@ -9,25 +9,24 @@
 
 #import "RCTTouchHandler.h"
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIGestureRecognizerSubclass.h>
 
 #import "RCTAssert.h"
 #import "RCTBridge.h"
 #import "RCTEventDispatcher.h"
-#import "RCTTouchEvent.h"
 #import "RCTLog.h"
+#import "RCTTouchEvent.h"
 #import "RCTUIManager.h"
 #import "RCTUtils.h"
-#import "NSView+React.h"
+#import "UIView+React.h"
 
-@interface RCTTouchHandler () <NSGestureRecognizerDelegate>
+@interface RCTTouchHandler () <UIGestureRecognizerDelegate>
 @end
 
 // TODO: this class behaves a lot like a module, and could be implemented as a
 // module if we were to assume that modules and RootViews had a 1:1 relationship
 @implementation RCTTouchHandler
 {
-  __weak RCTBridge *_bridge;
   __weak RCTEventDispatcher *_eventDispatcher;
 
   /**
@@ -36,20 +35,11 @@
    * These must be kept track of because `UIKit` destroys the touch targets
    * if touches are canceled, and we have no other way to recover this info.
    */
-  NSMutableOrderedSet<NSEvent *> *_nativeTouches;
+  NSMutableOrderedSet<UITouch *> *_nativeTouches;
   NSMutableArray<NSMutableDictionary *> *_reactTouches;
-  NSMutableArray<NSView *> *_touchViews;
+  NSMutableArray<UIView *> *_touchViews;
 
   uint16_t _coalescingKey;
-  
-  BOOL _dispatchedInitialTouches;
-  BOOL _recordingInteractionTiming;
-  CFTimeInterval _mostRecentEnqueueJS;
-  
-  /*
-   * Storing tag to dispatch mouseEnter and mouseLeave events
-   */
-  NSNumber *_currentMouseOverTag;
 }
 
 - (instancetype)initWithBridge:(RCTBridge *)bridge
@@ -57,7 +47,6 @@
   RCTAssertParam(bridge);
 
   if ((self = [super initWithTarget:nil action:NULL])) {
-    _bridge = bridge;
     _eventDispatcher = [bridge moduleForClass:[RCTEventDispatcher class]];
 
     _nativeTouches = [NSMutableOrderedSet new];
@@ -67,7 +56,10 @@
     // `cancelsTouchesInView` and `delaysTouches*` are needed in order to be used as a top level
     // event delegated recognizer. Otherwise, lower-level components not built
     // using RCT, will fail to recognize gestures.
-    
+    self.cancelsTouchesInView = NO;
+    self.delaysTouchesBegan = NO; // This is default value.
+    self.delaysTouchesEnded = NO;
+
     self.delegate = self;
   }
 
@@ -76,14 +68,14 @@
 
 RCT_NOT_IMPLEMENTED(- (instancetype)initWithTarget:(id)target action:(SEL)action)
 
-- (void)attachToView:(NSView *)view
+- (void)attachToView:(UIView *)view
 {
   RCTAssert(self.view == nil, @"RCTTouchHandler already has attached view.");
 
   [view addGestureRecognizer:self];
 }
 
-- (void)detachFromView:(NSView *)view
+- (void)detachFromView:(UIView *)view
 {
   RCTAssertParam(view);
   RCTAssert(self.view == view, @"RCTTouchHandler attached to another view.");
@@ -93,42 +85,25 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithTarget:(id)target action:(SEL)action
 
 #pragma mark - Bookkeeping for touch indices
 
-- (void)_recordNewTouches:(NSSet<NSEvent *> *)touches
+- (void)_recordNewTouches:(NSSet<UITouch *> *)touches
 {
-  for (NSEvent *touch in touches) {
+  for (UITouch *touch in touches) {
 
-    NSUInteger index = [_nativeTouches indexOfObjectPassingTest:^BOOL(id obj, __unused NSUInteger idx, __unused BOOL *stop) {
-      return touch.eventNumber == ((NSEvent *)obj).eventNumber;
-    }];
-
-    RCTAssert(index == NSNotFound,
+    RCTAssert(![_nativeTouches containsObject:touch],
               @"Touch is already recorded. This is a critical bug.");
 
-    NSPoint touchLocation = [touch locationInWindow];
-
-    // adjust touchLocation if our view placed inside custom PopoverWindow
-    if ([[self.view window].className isEqualToString:@"_NSPopoverWindow"]) {
-      NSPoint rootOrigin = [self.view window].contentView.frame.origin;
-      touchLocation = NSMakePoint(touchLocation.x - rootOrigin.x, touchLocation.y - rootOrigin.y);
+    // Find closest React-managed touchable view
+    UIView *targetView = touch.view;
+    while (targetView) {
+      if (targetView.reactTag && targetView.userInteractionEnabled) {
+        break;
+      }
+      targetView = targetView.superview;
     }
 
-    // TODO: get rid of explicit comparison
-    //
-    // Check if item is becoming first responder to delete touch
-    NSView *targetView = [self.view hitTest:touchLocation];
-
-    if (![targetView.className isEqualToString:@"RCTText"] &&
-        ![targetView.className isEqualToString:@"RCTView"] &&
-        ![targetView.className isEqualToString:@"RCTImageView"] &&
-        ![targetView.className isEqualToString:@"ARTSurfaceView"]) {
-      self.state = NSGestureRecognizerStateEnded;
-      return;
-    }
-
-    NSNumber *reactTag = [self.view reactTagAtPoint:CGPointMake(touchLocation.x, touchLocation.y)];
-
-    if (!reactTag) {
-      return;
+    NSNumber *reactTag = [targetView reactTagAtPoint:[touch locationInView:targetView]];
+    if (!reactTag || !targetView.userInteractionEnabled) {
+      continue;
     }
 
     // Get new, unique touch identifier for the react touch
@@ -146,11 +121,9 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithTarget:(id)target action:(SEL)action
     }
 
     // Create touch
-    NSMutableDictionary *reactTouch = [[NSMutableDictionary alloc] initWithCapacity:9];
+    NSMutableDictionary *reactTouch = [[NSMutableDictionary alloc] initWithCapacity:RCTMaxTouches];
     reactTouch[@"target"] = reactTag;
     reactTouch[@"identifier"] = @(touchID);
-    reactTouch[@"touches"] = (id)kCFNull;        // We hijack this touchObj to serve both as an event
-    reactTouch[@"changedTouches"] = (id)kCFNull; // and as a Touch object, so making this JIT friendly.
 
     // Add to arrays
     [_touchViews addObject:targetView];
@@ -159,13 +132,11 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithTarget:(id)target action:(SEL)action
   }
 }
 
-- (void)_recordRemovedTouches:(NSSet<NSEvent *> *)touches
+- (void)_recordRemovedTouches:(NSSet<UITouch *> *)touches
 {
-  for (NSEvent *touch in touches) {
-    NSUInteger index = [_nativeTouches indexOfObjectPassingTest:^BOOL(id obj, __unused NSUInteger idx, __unused BOOL *stop) {
-      return touch.eventNumber == ((NSEvent *)obj).eventNumber;
-    }];
-    if(index == NSNotFound) {
+  for (UITouch *touch in touches) {
+    NSUInteger index = [_nativeTouches indexOfObject:touch];
+    if (index == NSNotFound) {
       continue;
     }
 
@@ -175,23 +146,28 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithTarget:(id)target action:(SEL)action
   }
 }
 
-- (void)_updateReactTouchAtIndex:(NSInteger)touchIndex withNativeTouch:(NSEvent *)nativeTouch
+- (void)_updateReactTouchAtIndex:(NSInteger)touchIndex
 {
-  CGPoint location = [nativeTouch locationInWindow];
-  CGPoint flippedLocation = CGPointMake(location.x, self.view.window.frame.size.height - location.y);
+  UITouch *nativeTouch = _nativeTouches[touchIndex];
+  CGPoint windowLocation = [nativeTouch locationInView:nativeTouch.window];
+  CGPoint rootViewLocation = [nativeTouch.window convertPoint:windowLocation toView:self.view];
 
-  // adjust touchLocation if our view placed inside custom PopoverWindow
-  if ([[self.view window].className isEqualToString:@"_NSPopoverWindow"]) {
-    NSPoint rootOrigin = [self.view window].contentView.frame.origin;
-    flippedLocation = NSMakePoint(flippedLocation.x - rootOrigin.x, flippedLocation.y - rootOrigin.y);
-  }
+  UIView *touchView = _touchViews[touchIndex];
+  CGPoint touchViewLocation = [nativeTouch.window convertPoint:windowLocation toView:touchView];
 
   NSMutableDictionary *reactTouch = _reactTouches[touchIndex];
-  reactTouch[@"pageX"] = @(RCTSanitizeNaNValue(flippedLocation.x, @"touchEvent.pageX"));
-  reactTouch[@"pageY"] = @(RCTSanitizeNaNValue(flippedLocation.y, @"touchEvent.pageY"));
-  reactTouch[@"locationX"] = @(RCTSanitizeNaNValue(flippedLocation.x, @"touchEvent.locationX"));
-  reactTouch[@"locationY"] = @(RCTSanitizeNaNValue(flippedLocation.y, @"touchEvent.locationY"));
+  reactTouch[@"pageX"] = @(RCTSanitizeNaNValue(rootViewLocation.x, @"touchEvent.pageX"));
+  reactTouch[@"pageY"] = @(RCTSanitizeNaNValue(rootViewLocation.y, @"touchEvent.pageY"));
+  reactTouch[@"locationX"] = @(RCTSanitizeNaNValue(touchViewLocation.x, @"touchEvent.locationX"));
+  reactTouch[@"locationY"] = @(RCTSanitizeNaNValue(touchViewLocation.y, @"touchEvent.locationY"));
   reactTouch[@"timestamp"] =  @(nativeTouch.timestamp * 1000); // in ms, for JS
+
+  // TODO: force for a 'normal' touch is usually 1.0;
+  // should we expose a `normalTouchForce` constant somewhere (which would
+  // have a value of `1.0 / nativeTouch.maximumPossibleForce`)?
+  if (RCTForceTouchAvailable()) {
+    reactTouch[@"force"] = @(RCTZeroIfNaN(nativeTouch.force / nativeTouch.maximumPossibleForce));
+  }
 }
 
 /**
@@ -205,19 +181,18 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithTarget:(id)target action:(SEL)action
  * (start/end/move/cancel) and the indices that represent "changed" `Touch`es
  * from that array.
  */
-- (void)_updateAndDispatchTouches:(NSSet<NSEvent *> *)touches
+- (void)_updateAndDispatchTouches:(NSSet<UITouch *> *)touches
                         eventName:(NSString *)eventName
 {
-  NSMutableArray *changedIndexes = [NSMutableArray new];
-  for (NSEvent *touch in touches) {
-    NSUInteger index = [_nativeTouches indexOfObjectPassingTest:^BOOL(id obj, __unused NSUInteger idx, __unused BOOL *stop) {
-      return touch.eventNumber == ((NSEvent *)obj).eventNumber;
-    }];
+  // Update touches
+  NSMutableArray<NSNumber *> *changedIndexes = [NSMutableArray new];
+  for (UITouch *touch in touches) {
+    NSInteger index = [_nativeTouches indexOfObject:touch];
     if (index == NSNotFound) {
       continue;
     }
 
-    [self _updateReactTouchAtIndex:index withNativeTouch:touch];
+    [self _updateReactTouchAtIndex:index];
     [changedIndexes addObject:@(index)];
   }
 
@@ -252,127 +227,102 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithTarget:(id)target action:(SEL)action
   if (!canBeCoalesced) {
     _coalescingKey++;
   }
+
   [_eventDispatcher sendEvent:event];
 }
 
 #pragma mark - Gesture Recognizer Delegate Callbacks
 
-//static BOOL RCTAllTouchesAreCancelledOrEnded(NSSet *touches)
-//{
-//  for (NSEvent *touch in touches) {
-//
-//    if (touch.phase == NSTouchPhaseBegan ||
-//        touch.phase == NSTouchPhaseMoved ||
-//        touch.phase == NSTouchPhaseStationary) {
-//      return NO;
-//    }
-//  }
-//  return YES;
-//}
-//
-//static BOOL RCTAnyTouchesChanged(NSSet *touches)
-//{
-//  for (NSEvent *touch in touches) {
-//    if (touch.phase == NSTouchPhaseBegan ||
-//        touch.phase == NSTouchPhaseMoved) {
-//      return YES;
-//    }
-//  }
-//  return NO;
-//}
-
-- (void)handleGesture
+static BOOL RCTAllTouchesAreCancelledOrEnded(NSSet<UITouch *> *touches)
 {
-  // If gesture just recognized, send all touches to JS as if they just began.
-  if (self.state == NSGestureRecognizerStateBegan) {
-    [self _updateAndDispatchTouches:_nativeTouches.set eventName:@"topTouchStart"];
-    
-    // We store this flag separately from `state` because after a gesture is
-    // recognized, its `state` changes immediately but its action (this
-    // method) isn't fired until dependent gesture recognizers have failed. We
-    // only want to send move/end/cancel touches if we've sent the touchStart.
-    _dispatchedInitialTouches = YES;
+  for (UITouch *touch in touches) {
+    if (touch.phase == UITouchPhaseBegan ||
+        touch.phase == UITouchPhaseMoved ||
+        touch.phase == UITouchPhaseStationary) {
+      return NO;
+    }
   }
+  return YES;
+}
+
+static BOOL RCTAnyTouchesChanged(NSSet<UITouch *> *touches)
+{
+  for (UITouch *touch in touches) {
+    if (touch.phase == UITouchPhaseBegan ||
+        touch.phase == UITouchPhaseMoved) {
+      return YES;
+    }
+  }
+  return NO;
 }
 
 #pragma mark - `UIResponder`-ish touch-delivery methods
 
-- (void)mouseDown:(NSEvent *)event
+- (void)touchesBegan:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
-  [super mouseDown:event];
+  [super touchesBegan:touches withEvent:event];
 
   // "start" has to record new touches *before* extracting the event.
   // "end"/"cancel" needs to remove the touch *after* extracting the event.
-  NSSet *touches = [NSSet setWithObject:event];
   [self _recordNewTouches:touches];
 
   [self _updateAndDispatchTouches:touches eventName:@"touchStart"];
 
-  if (self.state == NSGestureRecognizerStatePossible) {
-    self.state = NSGestureRecognizerStateBegan;
-  } else if (self.state == NSGestureRecognizerStateBegan) {
-    self.state = NSGestureRecognizerStateChanged;
-  }
-  [self handleGesture];
-}
-
-- (void)mouseDragged:(NSEvent *)event
-{
-  [super mouseDragged:event];
-  
-  NSSet *touches = [NSSet setWithObject:event];
-  if (_dispatchedInitialTouches) {
-    [self _updateAndDispatchTouches:touches eventName:@"touchMove"];
-    self.state = NSGestureRecognizerStateChanged;
+  if (self.state == UIGestureRecognizerStatePossible) {
+    self.state = UIGestureRecognizerStateBegan;
+  } else if (self.state == UIGestureRecognizerStateBegan) {
+    self.state = UIGestureRecognizerStateChanged;
   }
 }
 
-- (void)mouseMoved:(NSEvent *)event
+- (void)touchesMoved:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
-  NSPoint touchLocation = [event locationInWindow];
-  NSNumber *reactTag = [self.view reactTagAtPoint:touchLocation];
-  if (reactTag == nil) {
-    return;
-  }
-  if (_currentMouseOverTag != reactTag && _currentMouseOverTag.intValue > 0) {
-    [_bridge enqueueJSCall:@"RCTEventEmitter.receiveEvent"
-                      args:@[_currentMouseOverTag, @"topMouseLeave"]];
-    [_bridge enqueueJSCall:@"RCTEventEmitter.receiveEvent"
-                      args:@[reactTag, @"topMouseEnter"]];
-    _currentMouseOverTag = reactTag;
-  } else if (_currentMouseOverTag == 0) {
-    [_bridge enqueueJSCall:@"RCTEventEmitter.receiveEvent"
-                      args:@[reactTag, @"topMouseEnter"]];
-    _currentMouseOverTag = reactTag;
-  }
+  [super touchesMoved:touches withEvent:event];
+
+  [self _updateAndDispatchTouches:touches eventName:@"touchMove"];
+  self.state = UIGestureRecognizerStateChanged;
 }
 
-- (void)mouseUp:(NSEvent *)event
+- (void)touchesEnded:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
 {
-  [super mouseUp:event];
-  
-  NSSet *touches = [NSSet setWithObject:event];
-  if (_dispatchedInitialTouches) {
-    
-    [self _updateAndDispatchTouches:touches eventName:@"touchEnd"];
-    
-    self.state = NSGestureRecognizerStateEnded;
+  [super touchesEnded:touches withEvent:event];
+
+  [self _updateAndDispatchTouches:touches eventName:@"touchEnd"];
+
+  if (RCTAllTouchesAreCancelledOrEnded(event.allTouches)) {
+    self.state = UIGestureRecognizerStateEnded;
+  } else if (RCTAnyTouchesChanged(event.allTouches)) {
+    self.state = UIGestureRecognizerStateChanged;
   }
+
   [self _recordRemovedTouches:touches];
 }
 
+- (void)touchesCancelled:(NSSet<UITouch *> *)touches withEvent:(UIEvent *)event
+{
+  [super touchesCancelled:touches withEvent:event];
 
-- (BOOL)canPreventGestureRecognizer:(__unused NSGestureRecognizer *)preventedGestureRecognizer
+  [self _updateAndDispatchTouches:touches eventName:@"touchCancel"];
+
+  if (RCTAllTouchesAreCancelledOrEnded(event.allTouches)) {
+    self.state = UIGestureRecognizerStateCancelled;
+  } else if (RCTAnyTouchesChanged(event.allTouches)) {
+    self.state = UIGestureRecognizerStateChanged;
+  }
+
+  [self _recordRemovedTouches:touches];
+}
+
+- (BOOL)canPreventGestureRecognizer:(__unused UIGestureRecognizer *)preventedGestureRecognizer
 {
   return NO;
 }
 
-- (BOOL)canBePreventedByGestureRecognizer:(NSGestureRecognizer *)preventingGestureRecognizer
+- (BOOL)canBePreventedByGestureRecognizer:(UIGestureRecognizer *)preventingGestureRecognizer
 {
   // We fail in favour of other external gesture recognizers.
   // iOS will ask `delegate`'s opinion about this gesture recognizer little bit later.
-  // return ![preventingGestureRecognizer.view isDescendantOfView:self.view];
-  return NO;
+  return ![preventingGestureRecognizer.view isDescendantOfView:self.view];
 }
 
 - (void)reset
@@ -396,7 +346,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithTarget:(id)target action:(SEL)action
 
 #pragma mark - UIGestureRecognizerDelegate
 
-- (BOOL)gestureRecognizer:(__unused NSGestureRecognizer *)gestureRecognizer shouldRequireFailureOfGestureRecognizer:(NSGestureRecognizer *)otherGestureRecognizer
+- (BOOL)gestureRecognizer:(__unused UIGestureRecognizer *)gestureRecognizer shouldRequireFailureOfGestureRecognizer:(UIGestureRecognizer *)otherGestureRecognizer
 {
   // Same condition for `failure of` as for `be prevented by`.
   return [self canBePreventedByGestureRecognizer:otherGestureRecognizer];

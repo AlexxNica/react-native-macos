@@ -9,48 +9,53 @@
 
 #import "RCTTextField.h"
 
+#import <React/RCTBridge.h>
 #import <React/RCTConvert.h>
 #import <React/RCTEventDispatcher.h>
+#import <React/RCTFont.h>
+#import <React/RCTUIManager.h>
 #import <React/RCTUtils.h>
-#import <React/NSView+React.h>
+#import <React/UIView+React.h>
 
+#import "RCTBackedTextInputDelegate.h"
 #import "RCTTextSelection.h"
+#import "RCTUITextField.h"
 
+@interface RCTTextField () <RCTBackedTextInputDelegate>
+
+@end
 
 @implementation RCTTextField
 {
-  RCTEventDispatcher *_eventDispatcher;
-  NSInteger _nativeEventCount;
-  NSString * _placeholderString;
+  RCTUITextField *_backedTextInput;
   BOOL _submitted;
-  NSRange _previousSelectionRange;
-  BOOL _textWasPasted;
-  NSString *_finalText;
+  CGSize _previousContentSize;
 }
 
-- (instancetype)initWithEventDispatcher:(RCTEventDispatcher *)eventDispatcher
+- (instancetype)initWithBridge:(RCTBridge *)bridge
 {
-  if ((self = [super initWithFrame:CGRectZero])) {
-    RCTAssert(eventDispatcher, @"eventDispatcher is a required parameter");
-    self.delegate = self;
-    self.drawsBackground = NO;
-    self.bordered = NO;
-    self.bezeled = YES;
+  if (self = [super initWithBridge:bridge]) {
+    // `blurOnSubmit` defaults to `true` for <TextInput multiline={false}> by design.
+    _blurOnSubmit = YES;
 
-    _eventDispatcher = eventDispatcher;
+    _backedTextInput = [[RCTUITextField alloc] initWithFrame:self.bounds];
+    _backedTextInput.autoresizingMask = UIViewAutoresizingFlexibleWidth | UIViewAutoresizingFlexibleHeight;
+    _backedTextInput.textInputDelegate = self;
+    _backedTextInput.font = self.fontAttributes.font;
 
-    [self addObserver:self forKeyPath:@"selectedTextRange" options:0 context:nil];
+    [self addSubview:_backedTextInput];
   }
-  return self;
-}
 
-- (void)dealloc
-{
-  [self removeObserver:self forKeyPath:@"selectedTextRange"];
+  return self;
 }
 
 RCT_NOT_IMPLEMENTED(- (instancetype)initWithFrame:(CGRect)frame)
 RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
+
+- (id<RCTBackedTextInputViewProtocol>)backedTextInputView
+{
+  return _backedTextInput;
+}
 
 - (void)sendKeyValueForString:(NSString *)string
 {
@@ -61,203 +66,77 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
                                eventCount:_nativeEventCount];
 }
 
--(void)keyUp:(NSEvent *)theEvent
+#pragma mark - Properties
+
+- (NSString *)text
 {
-  [self sendKeyValueForString: [NSString stringWithFormat:@"%i", theEvent.keyCode ]];
+  return _backedTextInput.text;
 }
-
-// TODO:
-// figure out why this method doesn't get called
-
-//- (BOOL)control:(NSControl *)control textView:(NSTextView *)textView doCommandBySelector:(SEL)commandSelector
-//{
-//  NSEvent *currentEvent = [[NSApplication sharedApplication]currentEvent];
-//  [self sendKeyValueForString: [NSString stringWithFormat:@"%i", currentEvent.keyCode ]];
-//  return YES;
-//}
-//
-//- (BOOL)textView:(NSTextView *)textView shouldChangeTextInRange:(NSRange)affectedCharRange replacementString:(NSString *)replacementString;
-//{
-//  [self sendKeyValueForString: replacementString];
-//  return YES;
-//}
-
-// This method is overridden for `onKeyPress`. The manager
-// will not send a keyPress for text that was pasted.
-- (void)paste:(id)sender
-{
-  _textWasPasted = YES;
-  [[super currentEditor] paste:sender];
-}
-
-- (void)setSelection:(RCTTextSelection *)selection
-{
-  if (!selection) {
-    return;
-  }
-
-//  UITextRange *currentSelection = self.selectedTextRange;
-//  UITextPosition *start = [self positionFromPosition:self.beginningOfDocument offset:selection.start];
-//  UITextPosition *end = [self positionFromPosition:self.beginningOfDocument offset:selection.end];
-//  UITextRange *selectedTextRange = [self textRangeFromPosition:start toPosition:end];
-//
-//  NSInteger eventLag = _nativeEventCount - _mostRecentEventCount;
-//  if (eventLag == 0 && ![currentSelection isEqual:selectedTextRange]) {
-//    _previousSelectionRange = selectedTextRange;
-//    self.selectedTextRange = selectedTextRange;
-//  } else if (eventLag > RCTTextUpdateLagWarningThreshold) {
-//    RCTLogWarn(@"Native TextInput(%@) is %zd events ahead of JS - try to make your JS faster.", self.text, eventLag);
-//  }
-}
-
 
 - (void)setText:(NSString *)text
 {
   NSInteger eventLag = _nativeEventCount - _mostRecentEventCount;
-  if (eventLag == 0 && ![text isEqualToString:[self stringValue]]) {
-    [self setStringValue:text];
-    // TODO: maintain cursor position
+  if (eventLag == 0 && ![text isEqualToString:self.text]) {
+    UITextRange *selection = _backedTextInput.selectedTextRange;
+    NSInteger oldTextLength = _backedTextInput.text.length;
+
+    _backedTextInput.text = text;
+
+    if (selection.empty) {
+      // maintain cursor position relative to the end of the old text
+      NSInteger offsetStart = [_backedTextInput offsetFromPosition:_backedTextInput.beginningOfDocument toPosition:selection.start];
+      NSInteger offsetFromEnd = oldTextLength - offsetStart;
+      NSInteger newOffset = text.length - offsetFromEnd;
+      UITextPosition *position = [_backedTextInput positionFromPosition:_backedTextInput.beginningOfDocument offset:newOffset];
+      [_backedTextInput setSelectedTextRange:[_backedTextInput textRangeFromPosition:position toPosition:position]
+                              notifyDelegate:YES];
+    }
   } else if (eventLag > RCTTextUpdateLagWarningThreshold) {
-    RCTLogWarn(@"Native TextInput(%@) is %zd events ahead of JS - try to make your JS faster.", [self stringValue], eventLag);
+    RCTLogWarn(@"Native TextInput(%@) is %lld events ahead of JS - try to make your JS faster.", _backedTextInput.text, (long long)eventLag);
   }
 }
 
-- (void)setPlaceholderTextColor:(NSColor *)placeholderTextColor
+#pragma mark - RCTBackedTextInputDelegate
+
+- (BOOL)textInputShouldChangeTextInRange:(NSRange)range replacementText:(NSString *)string
 {
-  if (placeholderTextColor != nil && ![_placeholderTextColor isEqual:placeholderTextColor]) {
-    _placeholderTextColor = placeholderTextColor;
-    [self updatePlaceholder];
+  // Only allow single keypresses for `onKeyPress`, pasted text will not be sent.
+  if (!_backedTextInput.textWasPasted) {
+    [self sendKeyValueForString:string];
   }
+
+  if (_maxLength != nil && ![string isEqualToString:@"\n"]) { // Make sure forms can be submitted via return.
+    NSUInteger allowedLength = _maxLength.integerValue - MIN(_maxLength.integerValue, _backedTextInput.text.length) + range.length;
+    if (string.length > allowedLength) {
+      if (string.length > 1) {
+        // Truncate the input string so the result is exactly `maxLength`.
+        NSString *limitedString = [string substringToIndex:allowedLength];
+        NSMutableString *newString = _backedTextInput.text.mutableCopy;
+        [newString replaceCharactersInRange:range withString:limitedString];
+        _backedTextInput.text = newString;
+
+        // Collapse selection at end of insert to match normal paste behavior.
+        UITextPosition *insertEnd = [_backedTextInput positionFromPosition:_backedTextInput.beginningOfDocument
+                                                              offset:(range.location + allowedLength)];
+        [_backedTextInput setSelectedTextRange:[_backedTextInput textRangeFromPosition:insertEnd toPosition:insertEnd]
+                                notifyDelegate:YES];
+        [self textInputDidChange];
+      }
+      return NO;
+    }
+  }
+
+  return YES;
 }
 
-- (void)updatePlaceholder
-{
-  if (_placeholderTextColor && _placeholderString) {
-    NSAttributedString *attrString = [[NSAttributedString alloc]
-                                      initWithString:_placeholderString attributes: @{
-                                        NSForegroundColorAttributeName: _placeholderTextColor,
-                                        NSFontAttributeName: [self font]
-                                      }];
-    [self setPlaceholderAttributedString:attrString];
-  }
-}
-
-- (void)setPlaceholder:(NSString *)placeholder
-{
-  if (placeholder != nil && ![_placeholderString isEqual:placeholder]) {
-    _placeholderString = placeholder;
-    [self updatePlaceholder];
-  }
-}
-
-- (void)setBackgroundColor:(NSColor *)backgroundColor
-{
-  if (backgroundColor) {
-    [self setDrawsBackground:YES];
-    [self.cell setBackgroundColor:backgroundColor];
-  }
-}
-
-- (void)textDidChange:(NSNotification *)aNotification
+- (void)textInputDidChange
 {
   _nativeEventCount++;
   [_eventDispatcher sendTextEventWithType:RCTTextEventTypeChange
                                  reactTag:self.reactTag
-                                     text:[self stringValue]
+                                     text:_backedTextInput.text
                                       key:nil
                                eventCount:_nativeEventCount];
-
-  // selectedTextRange observer isn't triggered when you type even though the
-  // cursor position moves, so we send event again here.
-  [self sendSelectionEvent];
-}
-
-- (void)textDidEndEditing:(NSNotification *)aNotification
-{
-  if (![_finalText isEqualToString:self.stringValue]) {
-    _finalText = nil;
-    // iOS does't send event `UIControlEventEditingChanged` if the change was happened because of autocorrection
-    // which was triggered by loosing focus. We assume that if `text` was changed in the middle of loosing focus process,
-    // we did not receive that event. So, we call `textFieldDidChange` manually.
-    [self textDidChange:(NSNotification *)self];
-  }
-
-  [_eventDispatcher sendTextEventWithType:RCTTextEventTypeEnd
-                                 reactTag:self.reactTag
-                                     text:[self stringValue]
-                                      key:nil
-                               eventCount:_nativeEventCount];
-}
-
-- (void)textFieldSubmitEditing
-{
-  _submitted = YES;
-  [_eventDispatcher sendTextEventWithType:RCTTextEventTypeSubmit
-                                 reactTag:self.reactTag
-                                     text:[self stringValue]
-                                      key:nil
-                               eventCount:_nativeEventCount];
-}
-
-- (void)textDidBeginEditing:(NSNotification *)aNotification
-{
-  [_eventDispatcher sendTextEventWithType:RCTTextEventTypeFocus
-                                 reactTag:self.reactTag
-                                     text:[self stringValue]
-                                      key:nil
-                               eventCount:_nativeEventCount];
-
-  dispatch_async(dispatch_get_main_queue(), ^{
-    if (self->_selectTextOnFocus) {
-      [self selectAll:nil];
-    }
-
-    [self sendSelectionEvent];
-  });
-}
-
-- (void)observeValueForKeyPath:(NSString *)keyPath
-                      ofObject:(RCTTextField *)textField
-                        change:(NSDictionary *)change
-                       context:(void *)context
-{
-  if ([keyPath isEqualToString:@"selectedTextRange"]) {
-    [self sendSelectionEvent];
-  }
-}
-
-- (void)sendSelectionEvent
-{
-  if (_onSelectionChange &&
-      (self.currentEditor.selectedRange.location != _previousSelectionRange.location ||
-      self.currentEditor.selectedRange.length != _previousSelectionRange.length)) {
-
-    _previousSelectionRange = self.currentEditor.selectedRange;
-
-    NSRange selection = self.currentEditor.selectedRange;
-    NSInteger start = selection.location;
-    NSInteger end = selection.location + selection.length;
-    _onSelectionChange(@{
-      @"selection": @{
-        @"start": @(start),
-        @"end": @(end),
-      },
-    });
-  }
-}
-
-- (BOOL)resignFirstResponder
-{
-  BOOL result = [super resignFirstResponder];
-  if (result)
-  {
-    [_eventDispatcher sendTextEventWithType:RCTTextEventTypeBlur
-                                   reactTag:self.reactTag
-                                       text:[self stringValue]
-                                        key:nil
-                                 eventCount:_nativeEventCount];
-  }
-  return result;
 }
 
 @end

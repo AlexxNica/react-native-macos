@@ -7,7 +7,7 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTBorderStyle.h>
 
@@ -35,7 +35,7 @@ typedef struct {
 /**
  * Determine if the border widths, colors and radii are all equal.
  */
-BOOL RCTBorderInsetsAreEqual(NSEdgeInsets borderInsets);
+BOOL RCTBorderInsetsAreEqual(UIEdgeInsets borderInsets);
 BOOL RCTCornerRadiiAreEqual(RCTCornerRadii cornerRadii);
 BOOL RCTBorderColorsAreEqual(RCTBorderColors borderColors);
 
@@ -44,7 +44,7 @@ BOOL RCTBorderColorsAreEqual(RCTBorderColors borderColors);
  * Effectively, returns radius - inset, with a lower bound of 0.0.
  */
 RCTCornerInsets RCTGetCornerInsets(RCTCornerRadii cornerRadii,
-                                   NSEdgeInsets borderInsets);
+                                   UIEdgeInsets borderInsets);
 
 /**
  * Create a CGPath representing a rounded rectangle with the specified bounds
@@ -60,10 +60,10 @@ CGPathRef RCTPathCreateWithRoundedRect(CGRect bounds,
  *
  * `borderInsets` defines the border widths for each edge.
  */
-NSImage *RCTGetBorderImage(RCTBorderStyle borderStyle,
+UIImage *RCTGetBorderImage(RCTBorderStyle borderStyle,
                            CGSize viewSize,
                            RCTCornerRadii cornerRadii,
-                           NSEdgeInsets borderInsets,
+                           UIEdgeInsets borderInsets,
                            RCTBorderColors borderColors,
                            CGColorRef backgroundColor,
                            BOOL drawToEdge);

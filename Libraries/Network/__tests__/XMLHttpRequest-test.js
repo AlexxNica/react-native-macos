@@ -13,14 +13,13 @@ const Platform = require('Platform');
 let requestId = 1;
 
 function setRequestId(id){
-  if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+  if (Platform.OS === 'ios') {
     return;
   }
   requestId = id;
 }
 
 jest
-  .disableAutomock()
   .dontMock('event-target-shim')
   .setMock('NativeModules', {
     Networking: {

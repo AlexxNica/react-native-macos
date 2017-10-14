@@ -10,9 +10,9 @@
 #import <React/RCTConvert.h>
 #import <React/RCTViewManager.h>
 
-@interface RCTConvert(NSDatePicker)
+@interface RCTConvert(UIDatePicker)
 
-+ (NSDatePickerMode)NSDatePickerMode:(id)json;
++ (UIDatePickerMode)UIDatePickerMode:(id)json;
 
 @end
 

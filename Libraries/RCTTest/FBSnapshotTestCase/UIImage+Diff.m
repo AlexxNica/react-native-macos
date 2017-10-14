@@ -29,16 +29,15 @@
 //
 
 #import "UIImage+Diff.h"
-#import "React/UIImageUtils.h"
 
-@implementation NSImage (Diff)
+@implementation UIImage (Diff)
 
-- (NSImage *)diffWithImage:(NSImage *)image
+- (UIImage *)diffWithImage:(UIImage *)image
 {
   if (!image) {
     return nil;
   }
-  CGSize imageSize = CGSizeMake(MAX([self size].width, image.size.width), MAX([self size].height, image.size.height));
+  CGSize imageSize = CGSizeMake(MAX(self.size.width, image.size.width), MAX(self.size.height, image.size.height));
   UIGraphicsBeginImageContextWithOptions(imageSize, YES, 0.0);
   CGContextRef context = UIGraphicsGetCurrentContext();
   [self drawInRect:CGRectMake(0, 0, self.size.width, self.size.height)];
@@ -46,10 +45,10 @@
   CGContextBeginTransparencyLayer(context, NULL);
   [image drawInRect:CGRectMake(0, 0, image.size.width, image.size.height)];
   CGContextSetBlendMode(context, kCGBlendModeDifference);
-  CGContextSetFillColorWithColor(context,[NSColor whiteColor].CGColor);
-  CGContextFillRect(context, CGRectMake(0, 0, [self size].width, [self size].height));
+  CGContextSetFillColorWithColor(context,[UIColor whiteColor].CGColor);
+  CGContextFillRect(context, CGRectMake(0, 0, self.size.width, self.size.height));
   CGContextEndTransparencyLayer(context);
-  NSImage *returnImage = UIGraphicsGetImageFromCurrentImageContext();
+  UIImage *returnImage = UIGraphicsGetImageFromCurrentImageContext();
   UIGraphicsEndImageContext();
   return returnImage;
 }

@@ -8,7 +8,6 @@
  */
 
 #import "RCTDeviceInfo.h"
-#import <AppKit/AppKit.h>
 
 #import "RCTAccessibilityManager.h"
 #import "RCTAssert.h"
@@ -16,11 +15,19 @@
 #import "RCTUtils.h"
 
 @implementation RCTDeviceInfo {
+#if !TARGET_OS_TV
+  UIInterfaceOrientation _currentInterfaceOrientation;
+#endif
 }
 
 @synthesize bridge = _bridge;
 
 RCT_EXPORT_MODULE()
+
++ (BOOL)requiresMainQueueSetup
+{
+  return YES;
+}
 
 - (dispatch_queue_t)methodQueue
 {
@@ -30,6 +37,35 @@ RCT_EXPORT_MODULE()
 - (void)setBridge:(RCTBridge *)bridge
 {
   _bridge = bridge;
+
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(didReceiveNewContentSizeMultiplier)
+                                               name:RCTAccessibilityManagerDidUpdateMultiplierNotification
+                                             object:_bridge.accessibilityManager];
+#if !TARGET_OS_TV
+  _currentInterfaceOrientation = [RCTSharedApplication() statusBarOrientation];
+
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(interfaceOrientationDidChange)
+                                               name:UIApplicationDidChangeStatusBarOrientationNotification
+                                             object:nil];
+#endif
+}
+
+static BOOL RCTIsIPhoneX() {
+  static BOOL isIPhoneX = NO;
+  static dispatch_once_t onceToken;
+
+  dispatch_once(&onceToken, ^{
+    RCTAssertMainQueue();
+
+    isIPhoneX = CGSizeEqualToSize(
+      [UIScreen mainScreen].nativeBounds.size,
+      CGSizeMake(1125, 2436)
+    );
+  });
+
+  return isIPhoneX;
 }
 
 static NSDictionary *RCTExportedDimensions(RCTBridge *bridge)
@@ -37,12 +73,12 @@ static NSDictionary *RCTExportedDimensions(RCTBridge *bridge)
   RCTAssertMainQueue();
 
   // Don't use RCTScreenSize since it the interface orientation doesn't apply to it
-  CGRect screenSize = [[NSScreen mainScreen] frame];
+  CGRect screenSize = [[UIScreen mainScreen] bounds];
   NSDictionary *dims = @{
                          @"width": @(screenSize.size.width),
                          @"height": @(screenSize.size.height),
                          @"scale": @(RCTScreenScale()),
-                         @"fontScale": @(1) // TODO: fix accessibility bridge.accessibilityManager.multiplier)
+                         @"fontScale": @(bridge.accessibilityManager.multiplier)
                          };
   return @{
            @"window": dims,
@@ -50,9 +86,14 @@ static NSDictionary *RCTExportedDimensions(RCTBridge *bridge)
            };
 }
 
+- (void)dealloc
+{
+  [NSNotificationCenter.defaultCenter removeObserver:self];
+}
+
 - (void)invalidate
 {
-  dispatch_async(dispatch_get_main_queue(), ^{
+  RCTExecuteOnMainQueue(^{
     self->_bridge = nil;
     [[NSNotificationCenter defaultCenter] removeObserver:self];
   });
@@ -60,19 +101,60 @@ static NSDictionary *RCTExportedDimensions(RCTBridge *bridge)
 
 - (NSDictionary<NSString *, id> *)constantsToExport
 {
-  NSMutableDictionary<NSString *, NSDictionary *> *constants = [NSMutableDictionary new];
-  constants[@"Dimensions"] = RCTExportedDimensions(_bridge);
-  return constants;
+  return @{
+    @"Dimensions": RCTExportedDimensions(_bridge),
+    // Note:
+    // This prop is deprecated and will be removed right after June 01, 2018.
+    // Please use this only for a quick and temporary solution.
+    // Use <SafeAreaView> instead.
+    @"isIPhoneX_deprecated": @(RCTIsIPhoneX()),
+  };
 }
 
 - (void)didReceiveNewContentSizeMultiplier
 {
-  // Report the event across the bridge.
+  RCTBridge *bridge = _bridge;
+  RCTExecuteOnMainQueue(^{
+    // Report the event across the bridge.
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Wdeprecated-declarations"
-  [_bridge.eventDispatcher sendDeviceEventWithName:@"didUpdateDimensions"
-                                              body:RCTExportedDimensions(_bridge)];
+    [bridge.eventDispatcher sendDeviceEventWithName:@"didUpdateDimensions"
+                                        body:RCTExportedDimensions(bridge)];
 #pragma clang diagnostic pop
+  });
 }
+
+#if !TARGET_OS_TV
+
+- (void)interfaceOrientationDidChange
+{
+  __weak typeof(self) weakSelf = self;
+  RCTExecuteOnMainQueue(^{
+    [weakSelf _interfaceOrientationDidChange];
+  });
+}
+
+
+- (void)_interfaceOrientationDidChange
+{
+  UIInterfaceOrientation nextOrientation = [RCTSharedApplication() statusBarOrientation];
+
+  // Update when we go from portrait to landscape, or landscape to portrait
+  if ((UIInterfaceOrientationIsPortrait(_currentInterfaceOrientation) &&
+       !UIInterfaceOrientationIsPortrait(nextOrientation)) ||
+      (UIInterfaceOrientationIsLandscape(_currentInterfaceOrientation) &&
+       !UIInterfaceOrientationIsLandscape(nextOrientation))) {
+#pragma clang diagnostic push
+#pragma clang diagnostic ignored "-Wdeprecated-declarations"
+        [_bridge.eventDispatcher sendDeviceEventWithName:@"didUpdateDimensions"
+                                                    body:RCTExportedDimensions(_bridge)];
+#pragma clang diagnostic pop
+      }
+
+  _currentInterfaceOrientation = nextOrientation;
+}
+
+#endif // TARGET_OS_TV
+
 
 @end

@@ -9,12 +9,12 @@
 
 #import "RCTShadowText.h"
 
-// TODO: (critical) Fix accessibility
-// #import <React/RCTAccessibilityManager.h>
+#import <React/RCTAccessibilityManager.h>
 #import <React/RCTBridge.h>
 #import <React/RCTConvert.h>
 #import <React/RCTFont.h>
 #import <React/RCTLog.h>
+#import <React/RCTShadowView+Layout.h>
 #import <React/RCTUIManager.h>
 #import <React/RCTUtils.h>
 
@@ -22,14 +22,14 @@
 #import "RCTText.h"
 #import "RCTTextView.h"
 
-NSString *const RCTShadowViewAttributeName = @"RCTShadowViewAttributeName";
 NSString *const RCTIsHighlightedAttributeName = @"IsHighlightedAttributeName";
 NSString *const RCTReactTagAttributeName = @"ReactTagAttributeName";
 
-CGFloat const RCTTextAutoSizeDefaultMinimumFontScale       = 0.5f;
-CGFloat const RCTTextAutoSizeWidthErrorMargin              = 0.05f;
-CGFloat const RCTTextAutoSizeHeightErrorMargin             = 0.025f;
-CGFloat const RCTTextAutoSizeGranularity                   = 0.001f;
+static NSString *const kShadowViewAttributeName = @"RCTShadowViewAttributeName";
+
+static CGFloat const kAutoSizeWidthErrorMargin  = 0.05f;
+static CGFloat const kAutoSizeHeightErrorMargin = 0.025f;
+static CGFloat const kAutoSizeGranularity       = 0.001f;
 
 @implementation RCTShadowText
 {
@@ -38,7 +38,7 @@ CGFloat const RCTTextAutoSizeGranularity                   = 0.001f;
   CGFloat _cachedTextStorageWidthMode;
   NSAttributedString *_cachedAttributedString;
   CGFloat _effectiveLetterSpacing;
-  NSUserInterfaceLayoutDirection _cachedEffectiveLayoutDirection;
+  UIUserInterfaceLayoutDirection _cachedLayoutDirection;
 }
 
 static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, float height, YGMeasureMode heightMode)
@@ -72,7 +72,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
     _fontSizeMultiplier = 1.0;
     _textAlign = NSTextAlignmentNatural;
     _writingDirection = NSWritingDirectionNatural;
-    _cachedEffectiveLayoutDirection = NSUserInterfaceLayoutDirectionLeftToRight;
+    _cachedLayoutDirection = UIUserInterfaceLayoutDirectionLeftToRight;
 
     YGNodeSetMeasureFunc(self.yogaNode, RCTMeasure);
 
@@ -116,15 +116,12 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
   parentProperties = [super processUpdatedProperties:applierBlocks
                                     parentProperties:parentProperties];
 
-  NSEdgeInsets padding = self.paddingAsInsets;
-  CGFloat width = self.frame.size.width - (padding.left + padding.right);
-
-
+  CGFloat availableWidth = self.availableSize.width;
   NSNumber *parentTag = [[self reactSuperview] reactTag];
-  NSTextStorage *textStorage = [self buildTextStorageForWidth:width widthMode:YGMeasureModeExactly];
+  NSTextStorage *textStorage = [self buildTextStorageForWidth:availableWidth widthMode:YGMeasureModeExactly];
   CGRect textFrame = [self calculateTextFrame:textStorage];
   BOOL selectable = _selectable;
-  [applierBlocks addObject:^(NSDictionary<NSNumber *, NSView *> *viewRegistry) {
+  [applierBlocks addObject:^(NSDictionary<NSNumber *, UIView *> *viewRegistry) {
     RCTText *view = (RCTText *)viewRegistry[self.reactTag];
     view.textFrame = textFrame;
     view.textStorage = textStorage;
@@ -138,7 +135,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
      * TODO: we should establish a delegate relationship betweeen RCTTextView
      * and its contaned RCTText element when they get inserted and get rid of this
      */
-    NSView *parentView = viewRegistry[parentTag];
+    UIView *parentView = viewRegistry[parentTag];
     if ([parentView respondsToSelector:@selector(performTextUpdate)]) {
       [(RCTTextView *)parentView performTextUpdate];
     }
@@ -160,12 +157,13 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
              absolutePosition:(CGPoint)absolutePosition
 {
   // Run layout on subviews.
-  NSTextStorage *textStorage = [self buildTextStorageForWidth:self.frame.size.width widthMode:YGMeasureModeExactly];
+  CGFloat availableWidth = self.availableSize.width;
+  NSTextStorage *textStorage = [self buildTextStorageForWidth:availableWidth widthMode:YGMeasureModeExactly];
   NSLayoutManager *layoutManager = textStorage.layoutManagers.firstObject;
   NSTextContainer *textContainer = layoutManager.textContainers.firstObject;
   NSRange glyphRange = [layoutManager glyphRangeForTextContainer:textContainer];
   NSRange characterRange = [layoutManager characterRangeForGlyphRange:glyphRange actualGlyphRange:NULL];
-  [layoutManager.textStorage enumerateAttribute:RCTShadowViewAttributeName inRange:characterRange options:0 usingBlock:^(RCTShadowView *child, NSRange range, BOOL *_) {
+  [layoutManager.textStorage enumerateAttribute:kShadowViewAttributeName inRange:characterRange options:0 usingBlock:^(RCTShadowView *child, NSRange range, BOOL *_) {
     if (child) {
       YGNodeRef childNode = child.yogaNode;
       float width = YGNodeStyleGetWidth(childNode).value;
@@ -173,7 +171,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
       if (YGFloatIsUndefined(width) || YGFloatIsUndefined(height)) {
         RCTLogError(@"Views nested within a <Text> must have a width and height");
       }
-      NSFont *font = [textStorage attribute:NSFontAttributeName atIndex:range.location effectiveRange:nil];
+      UIFont *font = [textStorage attribute:NSFontAttributeName atIndex:range.location effectiveRange:nil];
       CGRect glyphRect = [layoutManager boundingRectForGlyphRange:range inTextContainer:textContainer];
       CGRect childFrame = {{
         RCTRoundPixelValue(glyphRect.origin.x),
@@ -198,9 +196,9 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
 {
   if (
       _cachedTextStorage &&
-      width == _cachedTextStorageWidth &&
+      (width == _cachedTextStorageWidth || (isnan(width) && isnan(_cachedTextStorageWidth))) &&
       widthMode == _cachedTextStorageWidthMode &&
-      _cachedEffectiveLayoutDirection == self.effectiveLayoutDirection
+      _cachedLayoutDirection == self.layoutDirection
   ) {
     return _cachedTextStorage;
   }
@@ -220,7 +218,10 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
   }
 
   textContainer.maximumNumberOfLines = _numberOfLines;
-  textContainer.size = (CGSize){widthMode == YGMeasureModeUndefined ? CGFLOAT_MAX : width, CGFLOAT_MAX};
+  textContainer.size = (CGSize){
+    widthMode == YGMeasureModeUndefined || isnan(width) ? CGFLOAT_MAX : width,
+    CGFLOAT_MAX
+  };
 
   [layoutManager addTextContainer:textContainer];
   [layoutManager ensureLayoutForTextContainer:textContainer];
@@ -253,7 +254,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
                                      fontStyle:nil
                                  letterSpacing:nil
                             useBackgroundColor:NO
-                               foregroundColor:self.color ?: [NSColor blackColor]
+                               foregroundColor:self.color ?: [UIColor blackColor]
                                backgroundColor:self.backgroundColor
                                        opacity:self.opacity];
 }
@@ -264,19 +265,19 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
                                               fontStyle:(NSString *)fontStyle
                                           letterSpacing:(NSNumber *)letterSpacing
                                      useBackgroundColor:(BOOL)useBackgroundColor
-                                        foregroundColor:(NSColor *)foregroundColor
-                                        backgroundColor:(NSColor *)backgroundColor
+                                        foregroundColor:(UIColor *)foregroundColor
+                                        backgroundColor:(UIColor *)backgroundColor
                                                 opacity:(CGFloat)opacity
 {
   if (
       ![self isTextDirty] &&
       _cachedAttributedString &&
-      _cachedEffectiveLayoutDirection == self.effectiveLayoutDirection
+      _cachedLayoutDirection == self.layoutDirection
   ) {
     return _cachedAttributedString;
   }
 
-  _cachedEffectiveLayoutDirection = self.effectiveLayoutDirection;
+  _cachedLayoutDirection = self.layoutDirection;
 
   if (_fontSize && !isnan(_fontSize)) {
     fontSize = @(_fontSize);
@@ -296,7 +297,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
 
   _effectiveLetterSpacing = letterSpacing.doubleValue;
 
-  NSFont *font = [RCTFont updateFont:nil
+  UIFont *font = [RCTFont updateFont:nil
                           withFamily:fontFamily
                                 size:fontSize
                               weight:fontWeight
@@ -334,7 +335,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
       attachment.bounds = (CGRect){CGPointZero, {width, height}};
       NSMutableAttributedString *attachmentString = [NSMutableAttributedString new];
       [attachmentString appendAttributedString:[NSAttributedString attributedStringWithAttachment:attachment]];
-      [attachmentString addAttribute:RCTShadowViewAttributeName value:child range:(NSRange){0, attachmentString.length}];
+      [attachmentString addAttribute:kShadowViewAttributeName value:child range:(NSRange){0, attachmentString.length}];
       [attributedString appendAttributedString:attachmentString];
       if (height > heightOfTallestSubview) {
         heightOfTallestSubview = height;
@@ -360,9 +361,9 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
   [self _addAttribute:NSFontAttributeName withValue:font toAttributedString:attributedString];
   [self _addAttribute:NSKernAttributeName withValue:letterSpacing toAttributedString:attributedString];
   [self _addAttribute:RCTReactTagAttributeName withValue:self.reactTag toAttributedString:attributedString];
-//  [self _setParagraphStyleOnAttributedString:attributedString
-//                              fontLineHeight:[NSLayoutManager defaultLineHeightForFont: font]
-//                      heightOfTallestSubview:heightOfTallestSubview];
+  [self _setParagraphStyleOnAttributedString:attributedString
+                              fontLineHeight:font.lineHeight
+                      heightOfTallestSubview:heightOfTallestSubview];
 
   // create a non-mutable attributedString for use by the Text system which avoids copies down the line
   _cachedAttributedString = [[NSAttributedString alloc] initWithAttributedString:attributedString];
@@ -418,7 +419,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
   // Text alignment
   NSTextAlignment textAlign = _textAlign;
   if (textAlign == NSTextAlignmentRight || textAlign == NSTextAlignmentLeft) {
-    if (_cachedEffectiveLayoutDirection == NSUserInterfaceLayoutDirectionRightToLeft) {
+    if (_cachedLayoutDirection == UIUserInterfaceLayoutDirectionRightToLeft) {
       if (textAlign == NSTextAlignmentRight) {
         textAlign = NSTextAlignmentLeft;
       } else {
@@ -477,8 +478,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
 - (CGRect)calculateTextFrame:(NSTextStorage *)textStorage
 {
   CGRect textFrame = UIEdgeInsetsInsetRect((CGRect){CGPointZero, self.frame.size},
-                                           self.paddingAsInsets);
-
+                                           self.compoundInsets);
 
   if (_adjustsFontSizeToFit) {
     textFrame = [self updateStorage:textStorage toFitFrame:textFrame];
@@ -489,7 +489,6 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
 
 - (CGRect)updateStorage:(NSTextStorage *)textStorage toFitFrame:(CGRect)frame
 {
-
   BOOL fits = [self attemptScale:1.0f
                        inStorage:textStorage
                         forFrame:frame];
@@ -504,8 +503,8 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
     requiredSize = [self calculateSize:textStorage];
   }
 
-  //Vertically center draw position for new text sizing.
-  frame.origin.y = self.paddingAsInsets.top + RCTRoundPixelValue((CGRectGetHeight(frame) - requiredSize.height) / 2.0f);
+  // Vertically center draw position for new text sizing.
+  frame.origin.y = self.compoundInsets.top + RCTRoundPixelValue((CGRectGetHeight(frame) - requiredSize.height) / 2.0f);
   return frame;
 }
 
@@ -516,7 +515,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
                                prevMid:(CGFloat)prevMid
 {
   CGFloat midScale = (minScale + maxScale) / 2.0f;
-  if (round((prevMid / RCTTextAutoSizeGranularity)) == round((midScale / RCTTextAutoSizeGranularity))) {
+  if (round((prevMid / kAutoSizeGranularity)) == round((midScale / kAutoSizeGranularity))) {
     //Bail because we can't meet error margin.
     return [self calculateSize:textStorage];
   } else {
@@ -529,12 +528,12 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
       return [self calculateOptimumScaleInFrame:frame
                                      forStorage:textStorage
                                        minScale:minScale
-                                       maxScale:midScale - RCTTextAutoSizeGranularity
+                                       maxScale:midScale - kAutoSizeGranularity
                                         prevMid:midScale];
     } else {
       return [self calculateOptimumScaleInFrame:frame
                                      forStorage:textStorage
-                                       minScale:midScale + RCTTextAutoSizeGranularity
+                                       minScale:midScale + kAutoSizeGranularity
                                        maxScale:maxScale
                                         prevMid:midScale];
     }
@@ -553,14 +552,13 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
   [textStorage enumerateAttribute:NSFontAttributeName
                            inRange:glyphRange
                            options:0
-                        usingBlock:^(NSFont *font, NSRange range, BOOL *stop)
+                        usingBlock:^(UIFont *font, NSRange range, BOOL *stop)
    {
      if (font) {
-       NSFont *originalFont = [self.attributedString attribute:NSFontAttributeName
+       UIFont *originalFont = [self.attributedString attribute:NSFontAttributeName
                                                        atIndex:range.location
                                                 effectiveRange:&range];
-
-       NSFont *newFont = [NSFont fontWithName: originalFont.fontName size:originalFont.pointSize * scale];
+       UIFont *newFont = [font fontWithSize:originalFont.pointSize * scale];
        [textStorage removeAttribute:NSFontAttributeName range:range];
        [textStorage addAttribute:NSFontAttributeName value:newFont range:range];
      }
@@ -578,8 +576,8 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
   textContainer.maximumNumberOfLines == 0;
 
   if (fitLines && fitSize) {
-    if ((requiredSize.width + (CGRectGetWidth(frame) * RCTTextAutoSizeWidthErrorMargin)) > CGRectGetWidth(frame) &&
-        (requiredSize.height + (CGRectGetHeight(frame) * RCTTextAutoSizeHeightErrorMargin)) > CGRectGetHeight(frame))
+    if ((requiredSize.width + (CGRectGetWidth(frame) * kAutoSizeWidthErrorMargin)) > CGRectGetWidth(frame) &&
+        (requiredSize.height + (CGRectGetHeight(frame) * kAutoSizeHeightErrorMargin)) > CGRectGetHeight(frame))
     {
       return RCTSizeWithinRange;
     } else {
@@ -622,7 +620,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
   return requiredSize;
 }
 
-- (void)setBackgroundColor:(NSColor *)backgroundColor
+- (void)setBackgroundColor:(UIColor *)backgroundColor
 {
   super.backgroundColor = backgroundColor;
   [self dirtyText];
@@ -636,7 +634,7 @@ static YGSize RCTMeasure(YGNodeRef node, float width, YGMeasureMode widthMode, f
 }
 
 RCT_TEXT_PROPERTY(AdjustsFontSizeToFit, _adjustsFontSizeToFit, BOOL)
-RCT_TEXT_PROPERTY(Color, _color, NSColor *)
+RCT_TEXT_PROPERTY(Color, _color, UIColor *)
 RCT_TEXT_PROPERTY(FontFamily, _fontFamily, NSString *)
 RCT_TEXT_PROPERTY(FontSize, _fontSize, CGFloat)
 RCT_TEXT_PROPERTY(FontWeight, _fontWeight, NSString *)
@@ -648,14 +646,14 @@ RCT_TEXT_PROPERTY(LineHeight, _lineHeight, CGFloat)
 RCT_TEXT_PROPERTY(NumberOfLines, _numberOfLines, NSUInteger)
 RCT_TEXT_PROPERTY(EllipsizeMode, _ellipsizeMode, NSLineBreakMode)
 RCT_TEXT_PROPERTY(TextAlign, _textAlign, NSTextAlignment)
-RCT_TEXT_PROPERTY(TextDecorationColor, _textDecorationColor, NSColor *);
+RCT_TEXT_PROPERTY(TextDecorationColor, _textDecorationColor, UIColor *);
 RCT_TEXT_PROPERTY(TextDecorationLine, _textDecorationLine, RCTTextDecorationLineType);
 RCT_TEXT_PROPERTY(TextDecorationStyle, _textDecorationStyle, NSUnderlineStyle);
 RCT_TEXT_PROPERTY(WritingDirection, _writingDirection, NSWritingDirection)
 RCT_TEXT_PROPERTY(Opacity, _opacity, CGFloat)
 RCT_TEXT_PROPERTY(TextShadowOffset, _textShadowOffset, CGSize);
 RCT_TEXT_PROPERTY(TextShadowRadius, _textShadowRadius, CGFloat);
-RCT_TEXT_PROPERTY(TextShadowColor, _textShadowColor, NSColor *);
+RCT_TEXT_PROPERTY(TextShadowColor, _textShadowColor, UIColor *);
 
 - (void)setAllowFontScaling:(BOOL)allowFontScaling
 {

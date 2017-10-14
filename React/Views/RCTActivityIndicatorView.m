@@ -14,7 +14,11 @@
 
 - (void)setHidden:(BOOL)hidden
 {
-  [super setHidden: hidden];
+  if ([self hidesWhenStopped] && ![self isAnimating]) {
+    [super setHidden: YES];
+  } else {
+    [super setHidden: hidden];
+  }
 }
 
 @end

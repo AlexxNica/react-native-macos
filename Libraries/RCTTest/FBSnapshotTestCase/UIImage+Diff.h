@@ -28,10 +28,10 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
-@interface NSImage (Diff)
+@interface UIImage (Diff)
 
-- (NSImage *)diffWithImage:(NSImage *)image;
+- (UIImage *)diffWithImage:(UIImage *)image;
 
 @end

@@ -17,7 +17,6 @@
 #import "RCTImageSource.h"
 #import "RCTParserUtils.h"
 #import "RCTUtils.h"
-#import "UIImageUtils.h"
 
 @implementation RCTConvert
 
@@ -69,13 +68,12 @@ RCT_CUSTOM_CONVERTER(NSData *, NSData, [json dataUsingEncoding:NSUTF8StringEncod
   for (NSNumber *number in json) {
     NSInteger index = number.integerValue;
     if (RCT_DEBUG && index < 0) {
-      RCTLogError(@"Invalid index value %zd. Indices must be positive.", index);
+      RCTLogError(@"Invalid index value %lld. Indices must be positive.", (long long)index);
     }
     [indexSet addIndex:index];
   }
   return indexSet;
 }
-
 
 + (NSURL *)NSURL:(id)json
 {
@@ -93,7 +91,7 @@ RCT_CUSTOM_CONVERTER(NSData *, NSData, [json dataUsingEncoding:NSUTF8StringEncod
 
     // Check if it has a scheme
     if ([path rangeOfString:@":"].location != NSNotFound) {
-      path = [path stringByAddingPercentEncodingWithAllowedCharacters:[NSCharacterSet URLQueryAllowedCharacterSet]];
+      path = [path stringByAddingPercentEscapesUsingEncoding:NSUTF8StringEncoding];
       URL = [NSURL URLWithString:path];
       if (URL) {
         return URL;
@@ -312,6 +310,67 @@ RCT_ENUM_CONVERTER(NSWritingDirection, (@{
   @"rtl": @(NSWritingDirectionRightToLeft),
 }), NSWritingDirectionNatural, integerValue)
 
+RCT_ENUM_CONVERTER(UITextAutocapitalizationType, (@{
+  @"none": @(UITextAutocapitalizationTypeNone),
+  @"words": @(UITextAutocapitalizationTypeWords),
+  @"sentences": @(UITextAutocapitalizationTypeSentences),
+  @"characters": @(UITextAutocapitalizationTypeAllCharacters)
+}), UITextAutocapitalizationTypeSentences, integerValue)
+
+RCT_ENUM_CONVERTER(UITextFieldViewMode, (@{
+  @"never": @(UITextFieldViewModeNever),
+  @"while-editing": @(UITextFieldViewModeWhileEditing),
+  @"unless-editing": @(UITextFieldViewModeUnlessEditing),
+  @"always": @(UITextFieldViewModeAlways),
+}), UITextFieldViewModeNever, integerValue)
+
+RCT_ENUM_CONVERTER(UIKeyboardType, (@{
+  @"default": @(UIKeyboardTypeDefault),
+  @"ascii-capable": @(UIKeyboardTypeASCIICapable),
+  @"numbers-and-punctuation": @(UIKeyboardTypeNumbersAndPunctuation),
+  @"url": @(UIKeyboardTypeURL),
+  @"number-pad": @(UIKeyboardTypeNumberPad),
+  @"phone-pad": @(UIKeyboardTypePhonePad),
+  @"name-phone-pad": @(UIKeyboardTypeNamePhonePad),
+  @"email-address": @(UIKeyboardTypeEmailAddress),
+  @"decimal-pad": @(UIKeyboardTypeDecimalPad),
+  @"twitter": @(UIKeyboardTypeTwitter),
+  @"web-search": @(UIKeyboardTypeWebSearch),
+  // Added for Android compatibility
+  @"numeric": @(UIKeyboardTypeDecimalPad),
+}), UIKeyboardTypeDefault, integerValue)
+
+#if !TARGET_OS_TV
+RCT_MULTI_ENUM_CONVERTER(UIDataDetectorTypes, (@{
+  @"phoneNumber": @(UIDataDetectorTypePhoneNumber),
+  @"link": @(UIDataDetectorTypeLink),
+  @"address": @(UIDataDetectorTypeAddress),
+  @"calendarEvent": @(UIDataDetectorTypeCalendarEvent),
+  @"none": @(UIDataDetectorTypeNone),
+  @"all": @(UIDataDetectorTypeAll),
+}), UIDataDetectorTypePhoneNumber, unsignedLongLongValue)
+#endif
+
+RCT_ENUM_CONVERTER(UIKeyboardAppearance, (@{
+  @"default": @(UIKeyboardAppearanceDefault),
+  @"light": @(UIKeyboardAppearanceLight),
+  @"dark": @(UIKeyboardAppearanceDark),
+}), UIKeyboardAppearanceDefault, integerValue)
+
+RCT_ENUM_CONVERTER(UIReturnKeyType, (@{
+  @"default": @(UIReturnKeyDefault),
+  @"go": @(UIReturnKeyGo),
+  @"google": @(UIReturnKeyGoogle),
+  @"join": @(UIReturnKeyJoin),
+  @"next": @(UIReturnKeyNext),
+  @"route": @(UIReturnKeyRoute),
+  @"search": @(UIReturnKeySearch),
+  @"send": @(UIReturnKeySend),
+  @"yahoo": @(UIReturnKeyYahoo),
+  @"done": @(UIReturnKeyDone),
+  @"emergency-call": @(UIReturnKeyEmergencyCall),
+}), UIReturnKeyDefault, integerValue)
+
 RCT_ENUM_CONVERTER(UIViewContentMode, (@{
   @"scale-to-fill": @(UIViewContentModeScaleToFill),
   @"scale-aspect-fit": @(UIViewContentModeScaleAspectFit),
@@ -332,32 +391,27 @@ RCT_ENUM_CONVERTER(UIViewContentMode, (@{
   @"stretch": @(UIViewContentModeScaleToFill),
 }), UIViewContentModeScaleAspectFill, integerValue)
 
-// TODO: normalise the use of w/width so we can do away with the alias values (#6566645)
-static void RCTConvertCGStructValue(const char *type, NSArray *fields, NSDictionary *aliases, CGFloat *result, id json)
+#if !TARGET_OS_TV
+RCT_ENUM_CONVERTER(UIBarStyle, (@{
+  @"default": @(UIBarStyleDefault),
+  @"black": @(UIBarStyleBlack),
+}), UIBarStyleDefault, integerValue)
+#endif
+
+static void convertCGStruct(const char *type, NSArray *fields, CGFloat *result, id json)
 {
   NSUInteger count = fields.count;
   if ([json isKindOfClass:[NSArray class]]) {
     if (RCT_DEBUG && [json count] != count) {
-      RCTLogError(@"Expected array with count %zd, but count is %zd: %@", count, [json count], json);
+      RCTLogError(@"Expected array with count %llu, but count is %llu: %@", (unsigned long long)count, (unsigned long long)[json count], json);
     } else {
       for (NSUInteger i = 0; i < count; i++) {
-        result[i] = [RCTConvert CGFloat:json[i]];
+        result[i] = [RCTConvert CGFloat:RCTNilIfNull(json[i])];
       }
     }
   } else if ([json isKindOfClass:[NSDictionary class]]) {
-    if (aliases.count) {
-      json = [json mutableCopy];
-      for (NSString *alias in aliases) {
-        NSString *key = aliases[alias];
-        NSNumber *number = json[alias];
-        if (number != nil) {
-          RCTLogWarn(@"Using deprecated '%@' property for '%s'. Use '%@' instead.", alias, type, key);
-          ((NSMutableDictionary *)json)[key] = number;
-        }
-      }
-    }
     for (NSUInteger i = 0; i < count; i++) {
-      result[i] = [RCTConvert CGFloat:json[fields[i]]];
+      result[i] = [RCTConvert CGFloat:RCTNilIfNull(json[fields[i]])];
     }
   } else if (json) {
     RCTLogConvertError(json, @(type));
@@ -368,24 +422,25 @@ static void RCTConvertCGStructValue(const char *type, NSArray *fields, NSDiction
  * This macro is used for creating converter functions for structs that consist
  * of a number of CGFloat properties, such as CGPoint, CGRect, etc.
  */
-#define RCT_CGSTRUCT_CONVERTER(type, values, aliases) \
-+ (type)type:(id)json                                 \
-{                                                     \
-  static NSArray *fields;                             \
-  static dispatch_once_t onceToken;                   \
-  dispatch_once(&onceToken, ^{                        \
-    fields = values;                                  \
-  });                                                 \
-  type result;                                        \
-  RCTConvertCGStructValue(#type, fields, aliases, (CGFloat *)&result, json); \
-  return result;                                      \
+#define RCT_CGSTRUCT_CONVERTER(type, values)                \
++ (type)type:(id)json                                       \
+{                                                           \
+  static NSArray *fields;                                   \
+  static dispatch_once_t onceToken;                         \
+  dispatch_once(&onceToken, ^{                              \
+    fields = values;                                        \
+  });                                                       \
+  type result;                                              \
+  convertCGStruct(#type, fields, (CGFloat *)&result, json); \
+  return result;                                            \
 }
 
 RCT_CUSTOM_CONVERTER(CGFloat, CGFloat, [self double:json])
-RCT_CGSTRUCT_CONVERTER(CGPoint, (@[@"x", @"y"]), (@{@"l": @"x", @"t": @"y"}))
-RCT_CGSTRUCT_CONVERTER(CGSize, (@[@"width", @"height"]), (@{@"w": @"width", @"h": @"height"}))
-RCT_CGSTRUCT_CONVERTER(CGRect, (@[@"x", @"y", @"width", @"height"]), (@{@"l": @"x", @"t": @"y", @"w": @"width", @"h": @"height"}))
-RCT_CGSTRUCT_CONVERTER(NSEdgeInsets, (@[@"top", @"left", @"bottom", @"right"]), nil)
+
+RCT_CGSTRUCT_CONVERTER(CGPoint, (@[@"x", @"y"]))
+RCT_CGSTRUCT_CONVERTER(CGSize, (@[@"width", @"height"]))
+RCT_CGSTRUCT_CONVERTER(CGRect, (@[@"x", @"y", @"width", @"height"]))
+RCT_CGSTRUCT_CONVERTER(UIEdgeInsets, (@[@"top", @"left", @"bottom", @"right"]))
 
 RCT_ENUM_CONVERTER(CGLineJoin, (@{
   @"miter": @(kCGLineJoinMiter),
@@ -399,18 +454,11 @@ RCT_ENUM_CONVERTER(CGLineCap, (@{
   @"square": @(kCGLineCapSquare),
 }), kCGLineCapButt, intValue)
 
-RCT_CGSTRUCT_CONVERTER(CATransform3D, (@[
-  @"m11", @"m12", @"m13", @"m14",
-  @"m21", @"m22", @"m23", @"m24",
-  @"m31", @"m32", @"m33", @"m34",
-  @"m41", @"m42", @"m43", @"m44"
-]), nil)
-
 RCT_CGSTRUCT_CONVERTER(CGAffineTransform, (@[
   @"a", @"b", @"c", @"d", @"tx", @"ty"
-]), nil)
+]))
 
-+ (NSColor *)NSColor:(id)json
++ (UIColor *)UIColor:(id)json
 {
   if (!json) {
     return nil;
@@ -418,7 +466,7 @@ RCT_CGSTRUCT_CONVERTER(CGAffineTransform, (@[
   if ([json isKindOfClass:[NSArray class]]) {
     NSArray *components = [self NSNumberArray:json];
     CGFloat alpha = components.count > 3 ? [self CGFloat:components[3]] : 1.0;
-    return [NSColor colorWithRed:[self CGFloat:components[0]]
+    return [UIColor colorWithRed:[self CGFloat:components[0]]
                            green:[self CGFloat:components[1]]
                             blue:[self CGFloat:components[2]]
                            alpha:alpha];
@@ -428,7 +476,7 @@ RCT_CGSTRUCT_CONVERTER(CGAffineTransform, (@[
     CGFloat r = ((argb >> 16) & 0xFF) / 255.0;
     CGFloat g = ((argb >> 8) & 0xFF) / 255.0;
     CGFloat b = (argb & 0xFF) / 255.0;
-    return [NSColor colorWithRed:r green:g blue:b alpha:a];
+    return [UIColor colorWithRed:r green:g blue:b alpha:a];
   } else {
     RCTLogConvertError(json, @"a UIColor. Did you forget to call processColor() on the JS side?");
     return nil;
@@ -437,7 +485,7 @@ RCT_CGSTRUCT_CONVERTER(CGAffineTransform, (@[
 
 + (CGColorRef)CGColor:(id)json
 {
-  return [self NSColor:json].CGColor;
+  return [self UIColor:json].CGColor;
 }
 
 + (YGValue)YGValue:(id)json
@@ -494,7 +542,7 @@ SEL RCTConvertSelectorForType(NSString *type)
 
 RCT_ARRAY_CONVERTER(NSURL)
 RCT_ARRAY_CONVERTER(RCTFileURL)
-RCT_ARRAY_CONVERTER(NSColor)
+RCT_ARRAY_CONVERTER(UIColor)
 
 /**
  * This macro is used for creating converter functions for directly
@@ -660,7 +708,7 @@ RCT_ENUM_CONVERTER(RCTAnimationType, (@{
 @implementation RCTConvert (Deprecated)
 
 /* This method is only used when loading images synchronously, e.g. for tabbar icons */
-+ (NSImage *)NSImage:(id)json
++ (UIImage *)UIImage:(id)json
 {
   if (!json) {
     return nil;
@@ -671,14 +719,14 @@ RCT_ENUM_CONVERTER(RCTAnimationType, (@{
     return nil;
   }
 
-  __block NSImage *image;
-  if (![NSThread isMainThread]) {
+  __block UIImage *image;
+  if (!RCTIsMainQueue()) {
     // It seems that none of the UIImage loading methods can be guaranteed
     // thread safe, so we'll pick the lesser of two evils here and block rather
     // than run the risk of crashing
-    RCTLogWarn(@"Calling [RCTConvert NSImage:] on a background thread is not recommended");
-    dispatch_sync(dispatch_get_main_queue(), ^{
-      image = [self NSImage:json];
+    RCTLogWarn(@"Calling [RCTConvert UIImage:] on a background thread is not recommended");
+    RCTUnsafeExecuteOnMainQueueSync(^{
+      image = [self UIImage:json];
     });
     return image;
   }
@@ -686,44 +734,37 @@ RCT_ENUM_CONVERTER(RCTAnimationType, (@{
   NSURL *URL = imageSource.request.URL;
   NSString *scheme = URL.scheme.lowercaseString;
   if ([scheme isEqualToString:@"file"]) {
-    NSString *assetName = RCTBundlePathForURL(URL);
-    image = assetName ? [NSImage imageNamed:assetName] : nil;
+    image = RCTImageFromLocalAssetURL(URL);
     if (!image) {
-      // Attempt to load from the file system
-      NSString *filePath = URL.path;
-      if (filePath.pathExtension.length == 0) {
-        filePath = [filePath stringByAppendingPathExtension:@"png"];
-      }
-      image = [[NSImage alloc] initWithContentsOfFile:filePath];
-      if (!image) {
-        RCTLogConvertError(json, @"an image. File not found.");
-      }
+      RCTLogConvertError(json, @"an image. File not found.");
     }
   } else if ([scheme isEqualToString:@"data"]) {
-    image = [[NSImage alloc] initWithData:[NSData dataWithContentsOfURL:URL]];
+    image = [UIImage imageWithData:[NSData dataWithContentsOfURL:URL]];
   } else if ([scheme isEqualToString:@"http"] && imageSource.packagerAsset) {
-    image = [[NSImage alloc] initWithData:[NSData dataWithContentsOfURL:URL]];
+    image = [UIImage imageWithData:[NSData dataWithContentsOfURL:URL]];
   } else {
     RCTLogConvertError(json, @"an image. Only local files or data URIs are supported.");
     return nil;
   }
 
   CGFloat scale = imageSource.scale;
-  CGImageRef imageRef;
   if (!scale && imageSource.size.width) {
     // If no scale provided, set scale to image width / source width
-    imageRef = [image CGImageForProposedRect:nil context:nil hints:nil];
-    scale = CGImageGetWidth(imageRef) / imageSource.size.width;
+    scale = CGImageGetWidth(image.CGImage) / imageSource.size.width;
   }
 
   if (scale) {
-    imageRef = [image CGImageForProposedRect:nil context:nil hints:nil];
-    image = [[NSImage alloc] initWithCGImage:imageRef size:NSMakeSize(image.size.width/scale, image.size.height/scale)];
+    image = [UIImage imageWithCGImage:image.CGImage
+                                scale:scale
+                          orientation:image.imageOrientation];
   }
 
   if (!CGSizeEqualToSize(imageSource.size, CGSizeZero) &&
       !CGSizeEqualToSize(imageSource.size, image.size)) {
-    RCTLogError(@"Image source size %@ x %f does not match loaded image size %f x %f", URL.path.lastPathComponent, imageSource.size.height, image.size.width, image.size.height);
+    RCTLogError(@"Image source %@ size %@ does not match loaded image size %@.",
+                URL.path.lastPathComponent,
+                NSStringFromCGSize(imageSource.size),
+                NSStringFromCGSize(image.size));
   }
 
   return image;
@@ -731,7 +772,7 @@ RCT_ENUM_CONVERTER(RCTAnimationType, (@{
 
 + (CGImageRef)CGImage:(id)json
 {
-  return [[self NSImage:json] CGImageForProposedRect:nil context:nil hints:nil];
+  return [self UIImage:json].CGImage;
 }
 
 @end

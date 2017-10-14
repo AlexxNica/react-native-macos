@@ -15,7 +15,7 @@
 #import <objc/runtime.h>
 #import <zlib.h>
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <CommonCrypto/CommonCrypto.h>
 
@@ -264,14 +264,29 @@ void RCTUnsafeExecuteOnMainQueueSync(dispatch_block_t block)
   }
 }
 
+static void RCTUnsafeExecuteOnMainQueueOnceSync(dispatch_once_t *onceToken, dispatch_block_t block)
+{
+  // The solution was borrowed from a post by Ben Alpert:
+  // https://benalpert.com/2014/04/02/dispatch-once-initialization-on-the-main-thread.html
+  // See also: https://www.mikeash.com/pyblog/friday-qa-2014-06-06-secrets-of-dispatch_once.html
+  if (RCTIsMainQueue()) {
+    dispatch_once(onceToken, block);
+  } else {
+    if (DISPATCH_EXPECT(*onceToken == 0L, NO)) {
+      dispatch_sync(dispatch_get_main_queue(), ^{
+        dispatch_once(onceToken, block);
+      });
+    }
+  }
+}
+
 CGFloat RCTScreenScale()
 {
-  static CGFloat scale;
   static dispatch_once_t onceToken;
-  dispatch_once(&onceToken, ^{
-    RCTUnsafeExecuteOnMainQueueSync(^{
-      scale = [NSScreen mainScreen].backingScaleFactor;
-    });
+  static CGFloat scale;
+
+  RCTUnsafeExecuteOnMainQueueOnceSync(&onceToken, ^{
+    scale = [UIScreen mainScreen].scale;
   });
 
   return scale;
@@ -287,7 +302,7 @@ CGSize RCTScreenSize()
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
     RCTUnsafeExecuteOnMainQueueSync(^{
-      size = [NSScreen mainScreen].frame.size;
+      size = [UIScreen mainScreen].bounds.size;
     });
   });
 
@@ -397,7 +412,7 @@ NSDictionary<NSString *, id> *RCTMakeAndLogError(NSString *message,
 
 NSDictionary<NSString *, id> *RCTJSErrorFromNSError(NSError *error)
 {
-  NSString *codeWithDomain = [NSString stringWithFormat:@"E%@%zd", error.domain.uppercaseString, error.code];
+  NSString *codeWithDomain = [NSString stringWithFormat:@"E%@%lld", error.domain.uppercaseString, (long long)error.code];
   return RCTJSErrorFromCodeMessageAndNSError(codeWithDomain,
                                              error.localizedDescription,
                                              error);
@@ -456,16 +471,15 @@ BOOL RCTRunningInAppExtension(void)
   return [[[[NSBundle mainBundle] bundlePath] pathExtension] isEqualToString:@"appex"];
 }
 
-NSApplication *__nullable RCTSharedApplication(void)
+UIApplication *__nullable RCTSharedApplication(void)
 {
   if (RCTRunningInAppExtension()) {
     return nil;
   }
-
-  return [[NSApplication class] performSelector:@selector(sharedApplication)];
+  return [[UIApplication class] performSelector:@selector(sharedApplication)];
 }
 
-NSWindow *__nullable RCTKeyWindow(void)
+UIWindow *__nullable RCTKeyWindow(void)
 {
   if (RCTRunningInAppExtension()) {
     return nil;
@@ -475,17 +489,18 @@ NSWindow *__nullable RCTKeyWindow(void)
   return RCTSharedApplication().keyWindow;
 }
 
-NSViewController *__nullable RCTPresentedViewController(void)
+UIViewController *__nullable RCTPresentedViewController(void)
 {
   if (RCTRunningInAppExtension()) {
     return nil;
   }
-  NSViewController *controller = RCTKeyWindow().contentViewController;
 
-//  while (presentedController && ![presentedController isBeingDismissed]) {
-//    controller = presentedController;
-//    presentedController = controller.presentedViewController;
-//  }
+  UIViewController *controller = RCTKeyWindow().rootViewController;
+  UIViewController *presentedController = controller.presentedViewController;
+  while (presentedController && ![presentedController isBeingDismissed]) {
+    controller = presentedController;
+    presentedController = controller.presentedViewController;
+  }
 
   return controller;
 }
@@ -495,10 +510,12 @@ BOOL RCTForceTouchAvailable(void)
   static BOOL forceSupported;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-    forceSupported = NO;
+    forceSupported = [UITraitCollection class] &&
+    [UITraitCollection instancesRespondToSelector:@selector(forceTouchCapability)];
   });
-  //TODO:
-  return forceSupported;
+
+  return forceSupported &&
+    (RCTKeyWindow() ?: [UIView new]).traitCollection.forceTouchCapability == UIForceTouchCapabilityAvailable;
 }
 
 NSError *RCTErrorWithMessage(NSString *message)
@@ -585,7 +602,7 @@ NSString *__nullable RCTBundlePathForURL(NSURL *__nullable URL)
     // Not a file path
     return nil;
   }
-  NSString *path = URL.path;
+  NSString *path = [NSString stringWithUTF8String:[URL fileSystemRepresentation]];
   NSString *bundlePath = [[NSBundle mainBundle] resourcePath];
   if (![path hasPrefix:bundlePath]) {
     // Not a bundle-relative file
@@ -639,12 +656,8 @@ static NSBundle *bundleForPath(NSString *key)
   return bundleCache[key];
 }
 
-NSImage *__nullable RCTImageFromLocalAssetURL(NSURL *imageURL)
+UIImage *__nullable RCTImageFromLocalAssetURL(NSURL *imageURL)
 {
-  if (!RCTIsLocalAssetURL(imageURL)) {
-    return nil;
-  }
-
   NSString *imageName = RCTBundlePathForURL(imageURL);
 
   NSBundle *bundle = nil;
@@ -656,11 +669,22 @@ NSImage *__nullable RCTImageFromLocalAssetURL(NSURL *imageURL)
     imageName = [imageName substringFromIndex:(bundlePath.length + 1)];
   }
 
-  NSImage *image = nil;
+  UIImage *image = nil;
   if (bundle) {
-    image = [bundle imageForResource:imageName];
+    image = [UIImage imageNamed:imageName inBundle:bundle compatibleWithTraitCollection:nil];
   } else {
-    image = [NSImage imageNamed:imageName];
+    image = [UIImage imageNamed:imageName];
+  }
+
+  if (!image) {
+    // Attempt to load from the file system
+    NSData *fileData;
+    if (imageURL.pathExtension.length == 0) {
+      fileData = [NSData dataWithContentsOfURL:[imageURL URLByAppendingPathExtension:@"png"]];
+    } else {
+      fileData = [NSData dataWithContentsOfURL:imageURL];
+    }
+    image = [UIImage imageWithData:fileData];
   }
 
   if (!image && !bundle) {
@@ -671,14 +695,13 @@ NSImage *__nullable RCTImageFromLocalAssetURL(NSURL *imageURL)
                                                                                              error:nil];
     for (NSURL *frameworkURL in possibleFrameworks) {
       bundle = [NSBundle bundleWithURL:frameworkURL];
-      image = [bundle imageForResource:imageName];
+      image = [UIImage imageNamed:imageName inBundle:bundle compatibleWithTraitCollection:nil];
       if (image) {
         RCTLogWarn(@"Image %@ not found in mainBundle, but found in %@", imageName, bundle);
         break;
       }
     }
   }
-
   return image;
 }
 
@@ -789,7 +812,7 @@ NSString *RCTColorToHexString(CGColorRef color)
 // (https://github.com/0xced/XCDFormInputAccessoryView/blob/master/XCDFormInputAccessoryView/XCDFormInputAccessoryView.m#L10-L14)
 NSString *RCTUIKitLocalizedString(NSString *string)
 {
-  NSBundle *UIKitBundle = [NSBundle bundleForClass:[NSApplication class]];
+  NSBundle *UIKitBundle = [NSBundle bundleForClass:[UIApplication class]];
   return UIKitBundle ? [UIKitBundle localizedStringForKey:string value:string table:nil] : string;
 }
 
@@ -846,27 +869,4 @@ NSURL *__nullable RCTURLByReplacingQueryParam(NSURL *__nullable URL, NSString *p
   }
   components.queryItems = queryItems;
   return components.URL;
-}
-
-NSAlert *__nullable RCTAlertView(NSString *title,
-                                 NSString *__nullable message,
-                                 id __nullable delegate,
-                                 NSString *__nullable cancelButtonTitle,
-                                 NSArray<NSString *> *__nullable otherButtonTitles)
-{
-  if (RCTRunningInAppExtension()) {
-    RCTLogError(@"RCTAlertView is unavailable when running in an app extension");
-    return nil;
-  }
-  NSAlert *alertView = [[NSAlert alloc] init];
-  alertView.messageText = title;
-  alertView.informativeText = message;
-  alertView.delegate = delegate;
-  if (cancelButtonTitle != nil) {
-    [alertView addButtonWithTitle:cancelButtonTitle];
-  }
-  for (NSString *buttonTitle in otherButtonTitles) {
-    [alertView addButtonWithTitle:buttonTitle];
-  }
-  return alertView;
 }

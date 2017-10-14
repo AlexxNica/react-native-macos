@@ -18,6 +18,7 @@
 #import "RCTLog.h"
 #import "RCTUtils.h"
 
+static NSString *const RCTStorageDirectory = @"RCTAsyncLocalStorage_V1";
 static NSString *const RCTManifestFileName = @"manifest.json";
 static const NSUInteger RCTInlineValueThreshold = 1024;
 
@@ -50,14 +51,20 @@ static NSString *RCTReadFile(NSString *filePath, NSString *key, NSDictionary **e
     NSError *error;
     NSStringEncoding encoding;
     NSString *entryString = [NSString stringWithContentsOfFile:filePath usedEncoding:&encoding error:&error];
+    NSDictionary *extraData = @{@"key": RCTNullIfNil(key)};
+
     if (error) {
-      *errorOut = RCTMakeError(@"Failed to read storage file.", error, @{@"key": key});
-    } else if (encoding != NSUTF8StringEncoding) {
-      *errorOut = RCTMakeError(@"Incorrect encoding of storage file: ", @(encoding), @{@"key": key});
-    } else {
-      return entryString;
+      if (errorOut) *errorOut = RCTMakeError(@"Failed to read storage file.", error, extraData);
+      return nil;
     }
+
+    if (encoding != NSUTF8StringEncoding) {
+      if (errorOut) *errorOut = RCTMakeError(@"Incorrect encoding of storage file: ", @(encoding), extraData);
+      return nil;
+    }
+    return entryString;
   }
+
   return nil;
 }
 
@@ -66,8 +73,12 @@ static NSString *RCTGetStorageDirectory()
   static NSString *storageDirectory = nil;
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
-    storageDirectory = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES).firstObject;
-    storageDirectory = [storageDirectory stringByAppendingPathComponent:[[[NSBundle mainBundle] infoDictionary] objectForKey:(id)kCFBundleNameKey]];
+#if TARGET_OS_TV
+    storageDirectory = NSSearchPathForDirectoriesInDomains(NSCachesDirectory, NSUserDomainMask, YES).firstObject;
+#else
+    storageDirectory = NSSearchPathForDirectoriesInDomains(NSDocumentDirectory, NSUserDomainMask, YES).firstObject;
+#endif
+    storageDirectory = [storageDirectory stringByAppendingPathComponent:RCTStorageDirectory];
   });
   return storageDirectory;
 }
@@ -128,7 +139,12 @@ static NSCache *RCTGetCache()
   static dispatch_once_t onceToken;
   dispatch_once(&onceToken, ^{
     cache = [NSCache new];
-    cache.totalCostLimit = 20 * 1024 * 1024; // 20MB
+    cache.totalCostLimit = 2 * 1024 * 1024; // 2MB
+
+    // Clear cache in the event of a memory warning
+    [[NSNotificationCenter defaultCenter] addObserverForName:UIApplicationDidReceiveMemoryWarningNotification object:nil queue:nil usingBlock:^(__unused NSNotification *note) {
+      [cache removeAllObjects];
+    }];
   });
   return cache;
 }
@@ -225,7 +241,7 @@ RCT_EXPORT_MODULE()
   }
   if (!_haveSetup) {
     NSDictionary *errorOut;
-    NSString *serialized = RCTReadFile(RCTGetManifestFilePath(), nil, &errorOut);
+    NSString *serialized = RCTReadFile(RCTGetManifestFilePath(), RCTManifestFileName, &errorOut);
     _manifest = serialized ? RCTJSONParseMutable(serialized, &error) : [NSMutableDictionary new];
     if (error) {
       RCTLogWarn(@"Failed to parse manifest - creating new one.\n\n%@", error);

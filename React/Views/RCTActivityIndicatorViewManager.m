@@ -12,15 +12,15 @@
 #import "RCTActivityIndicatorView.h"
 #import "RCTConvert.h"
 
-@implementation RCTConvert (NSProgressIndicator)
+@implementation RCTConvert (UIActivityIndicatorView)
 
 // NOTE: It's pointless to support UIActivityIndicatorViewStyleGray
 // as we can set the color to any arbitrary value that we want to
 
-//RCT_ENUM_CONVERTER(UIActivityIndicatorViewStyle, (@{
-//  @"large": @(UIActivityIndicatorViewStyleWhiteLarge),
-//  @"small": @(UIActivityIndicatorViewStyleWhite),
-//}), UIActivityIndicatorViewStyleWhiteLarge, integerValue)
+RCT_ENUM_CONVERTER(UIActivityIndicatorViewStyle, (@{
+  @"large": @(UIActivityIndicatorViewStyleWhiteLarge),
+  @"small": @(UIActivityIndicatorViewStyleWhite),
+}), UIActivityIndicatorViewStyleWhiteLarge, integerValue)
 
 @end
 
@@ -28,34 +28,24 @@
 
 RCT_EXPORT_MODULE()
 
-- (NSView *)view
+- (UIView *)view
 {
-  RCTActivityIndicatorView* indicator = [[RCTActivityIndicatorView alloc] init];
-  [indicator setControlSize:NSRegularControlSize];
-  [indicator setStyle:NSProgressIndicatorSpinningStyle];
-  [indicator setUsesThreadedAnimation:YES];
-  [indicator setDisplayedWhenStopped:NO];
-  [indicator setHidden:YES];
-  return indicator;
+  return [RCTActivityIndicatorView new];
 }
 
-//RCT_EXPORT_VIEW_PROPERTY(color, NSColor) // implement drawRect
-//RCT_EXPORT_VIEW_PROPERTY(hidesWhenStopped, BOOL)
-//RCT_REMAP_VIEW_PROPERTY(size, activityIndicatorViewStyle, NSProgressIndicatorSpinningStyle)
-RCT_CUSTOM_VIEW_PROPERTY(animating, BOOL, RCTActivityIndicatorView)
+RCT_EXPORT_VIEW_PROPERTY(color, UIColor)
+RCT_EXPORT_VIEW_PROPERTY(hidesWhenStopped, BOOL)
+RCT_REMAP_VIEW_PROPERTY(size, activityIndicatorViewStyle, UIActivityIndicatorViewStyle)
+RCT_CUSTOM_VIEW_PROPERTY(animating, BOOL, UIActivityIndicatorView)
 {
-  //TODO: store animated property because NSProgressIndicator doesn't have a suitable method
-  BOOL animating = json ? [RCTConvert BOOL:json] : YES;
-  NSLog(@"animation %hdd", animating);
-  if (animating) {
-    [view setHidden:NO];
-    [view startAnimation:self];
-  } else {
-    [view stopAnimation:self];
-    [view setHidden:YES];
+  BOOL animating = json ? [RCTConvert BOOL:json] : [defaultView isAnimating];
+  if (animating != [view isAnimating]) {
+    if (animating) {
+      [view startAnimating];
+    } else {
+      [view stopAnimating];
+    }
   }
 }
-
-
 
 @end

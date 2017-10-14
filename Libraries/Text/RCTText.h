@@ -7,16 +7,13 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
-CGRect UIEdgeInsetsInsetRect(CGRect rect, NSEdgeInsets insets);
+@interface RCTText : UIView
 
-@interface RCTText : NSView
-
-@property (nonatomic, assign) NSEdgeInsets contentInset;
+@property (nonatomic, assign) UIEdgeInsets contentInset;
 @property (nonatomic, strong) NSTextStorage *textStorage;
 @property (nonatomic, assign) CGRect textFrame;
 @property (nonatomic, assign) BOOL selectable;
 
-@property (nonatomic, assign) BOOL respondsToLiveResizing;
 @end

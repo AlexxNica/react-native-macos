@@ -51,7 +51,7 @@
           CGPathAddArc(path, NULL, NEXT_VALUE, NEXT_VALUE, NEXT_VALUE, NEXT_VALUE, NEXT_VALUE, NEXT_VALUE == 0);
           break;
         default:
-          RCTLogError(@"Invalid CGPath type %zd at element %zd of %@", type, i, arr);
+          RCTLogError(@"Invalid CGPath type %llu at element %llu of %@", (unsigned long long)type, (unsigned long long)i, arr);
           CGPathRelease(path);
           return NULL;
       }
@@ -88,36 +88,35 @@ RCT_ENUM_CONVERTER(CTTextAlignment, (@{
     return frame;
   }
 
-  NSDictionary *fontDict = dict[@"font"];
-    CTFontRef font = (__bridge CTFontRef)[self NSFont:dict[@"font"]];
-    if (!font) {
-        return frame;
-    }
+  CTFontRef font = (__bridge CTFontRef)[self UIFont:dict[@"font"]];
+  if (!font) {
+    return frame;
+  }
 
-    // Create a dictionary for this font
-    CFDictionaryRef attributes = (__bridge CFDictionaryRef)@{
-                                                             (NSString *)kCTFontAttributeName:(__bridge id)font,
-                                                             (NSString *)kCTForegroundColorFromContextAttributeName: @YES
-                                                             };
+  // Create a dictionary for this font
+  CFDictionaryRef attributes = (__bridge CFDictionaryRef)@{
+    (NSString *)kCTFontAttributeName:(__bridge id)font,
+    (NSString *)kCTForegroundColorFromContextAttributeName: @YES
+  };
 
-    // Set up text frame with font metrics
-    CGFloat size = CTFontGetSize(font);
-    frame.count = lineCount;
-    frame.baseLine = size; // estimate base line
-    frame.lineHeight = size * 1.1; // Base on ART canvas line height estimate
-    frame.lines = malloc(sizeof(CTLineRef) * lineCount);
-    frame.widths = malloc(sizeof(CGFloat) * lineCount);
+  // Set up text frame with font metrics
+  CGFloat size = CTFontGetSize(font);
+  frame.count = lineCount;
+  frame.baseLine = size; // estimate base line
+  frame.lineHeight = size * 1.1; // Base on ART canvas line height estimate
+  frame.lines = malloc(sizeof(CTLineRef) * lineCount);
+  frame.widths = malloc(sizeof(CGFloat) * lineCount);
 
-    [lines enumerateObjectsUsingBlock:^(NSString *text, NSUInteger i, BOOL *stop) {
-        
-        CFStringRef string = (__bridge CFStringRef)text;
-        CFAttributedStringRef attrString = CFAttributedStringCreate(kCFAllocatorDefault, string, attributes);
-        CTLineRef line = CTLineCreateWithAttributedString(attrString);
-        CFRelease(attrString);
-        
-        frame.lines[i] = line;
-        frame.widths[i] = CTLineGetTypographicBounds(line, NULL, NULL, NULL);
-    }];
+  [lines enumerateObjectsUsingBlock:^(NSString *text, NSUInteger i, BOOL *stop) {
+
+    CFStringRef string = (__bridge CFStringRef)text;
+    CFAttributedStringRef attrString = CFAttributedStringCreate(kCFAllocatorDefault, string, attributes);
+    CTLineRef line = CTLineCreateWithAttributedString(attrString);
+    CFRelease(attrString);
+
+    frame.lines[i] = line;
+    frame.widths[i] = CTLineGetTypographicBounds(line, NULL, NULL, NULL);
+  }];
 
   return frame;
 }
@@ -159,7 +158,7 @@ RCT_ENUM_CONVERTER(CTTextAlignment, (@{
     case 3: // pattern
       return [[ARTPattern alloc] initWithArray:arr];
     default:
-      RCTLogError(@"Unknown brush type: %zd", type);
+      RCTLogError(@"Unknown brush type: %llu", (unsigned long long)type);
       return nil;
   }
 }
@@ -168,7 +167,7 @@ RCT_ENUM_CONVERTER(CTTextAlignment, (@{
 {
   NSArray *arr = [self NSArray:json];
   if (arr.count < offset + 2) {
-    RCTLogError(@"Too few elements in array (expected at least %zd): %@", 2 + offset, arr);
+    RCTLogError(@"Too few elements in array (expected at least %llu): %@", (unsigned long long)(2 + offset), arr);
     return CGPointZero;
   }
   return (CGPoint){
@@ -181,7 +180,7 @@ RCT_ENUM_CONVERTER(CTTextAlignment, (@{
 {
   NSArray *arr = [self NSArray:json];
   if (arr.count < offset + 4) {
-    RCTLogError(@"Too few elements in array (expected at least %zd): %@", 4 + offset, arr);
+    RCTLogError(@"Too few elements in array (expected at least %llu): %@", (unsigned long long)(4 + offset), arr);
     return CGRectZero;
   }
   return (CGRect){
@@ -194,7 +193,7 @@ RCT_ENUM_CONVERTER(CTTextAlignment, (@{
 {
   NSArray *arr = [self NSArray:json];
   if (arr.count < offset + 4) {
-    RCTLogError(@"Too few elements in array (expected at least %zd): %@", 4 + offset, arr);
+    RCTLogError(@"Too few elements in array (expected at least %llu): %@", (unsigned long long)(4 + offset), arr);
     return NULL;
   }
   return [self CGColor:[arr subarrayWithRange:(NSRange){offset, 4}]];
@@ -204,7 +203,7 @@ RCT_ENUM_CONVERTER(CTTextAlignment, (@{
 {
   NSArray *arr = [self NSArray:json];
   if (arr.count < offset) {
-    RCTLogError(@"Too few elements in array (expected at least %zd): %@", offset, arr);
+    RCTLogError(@"Too few elements in array (expected at least %llu): %@", (unsigned long long)offset, arr);
     return NULL;
   }
   arr = [arr subarrayWithRange:(NSRange){offset, arr.count - offset}];

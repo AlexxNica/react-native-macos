@@ -36,7 +36,7 @@ RCT_EXPORT_MODULE()
   NSDictionary<NSString *, id> *properties = (__bridge_transfer NSDictionary *)CGImageSourceCopyProperties(imageSource, NULL);
   NSUInteger loopCount = [properties[(id)kCGImagePropertyGIFDictionary][(id)kCGImagePropertyGIFLoopCount] unsignedIntegerValue];
 
-  NSImage *image = nil;
+  UIImage *image = nil;
   size_t imageCount = CGImageSourceGetCount(imageSource);
   if (imageCount > 1) {
 
@@ -47,8 +47,7 @@ RCT_EXPORT_MODULE()
 
       CGImageRef imageRef = CGImageSourceCreateImageAtIndex(imageSource, i, NULL);
       if (!image) {
-        // TODO: Respect the scale
-        image = [[NSImage alloc] initWithCGImage:imageRef size:CGSizeMake(CGImageGetWidth(imageRef), CGImageGetHeight(imageRef)) ];
+        image = [UIImage imageWithCGImage:imageRef scale:scale orientation:UIImageOrientationUp];
       }
 
       NSDictionary<NSString *, id> *frameProperties = (__bridge_transfer NSDictionary *)CGImageSourceCopyPropertiesAtIndex(imageSource, i, NULL);
@@ -99,7 +98,7 @@ RCT_EXPORT_MODULE()
     // Don't bother creating an animation
     CGImageRef imageRef = CGImageSourceCreateImageAtIndex(imageSource, 0, NULL);
     if (imageRef) {
-      image = [[NSImage alloc] initWithCGImage:imageRef size:CGSizeMake(CGImageGetWidth(imageRef), CGImageGetHeight(imageRef)) ];
+      image = [UIImage imageWithCGImage:imageRef scale:scale orientation:UIImageOrientationUp];
       CFRelease(imageRef);
     }
     CFRelease(imageSource);

@@ -12,48 +12,80 @@
 #import "RCTBridge.h"
 #import "RCTEventDispatcher.h"
 #import "RCTSlider.h"
-#import "NSView+React.h"
+#import "UIView+React.h"
 
 @implementation RCTSliderManager
 
 RCT_EXPORT_MODULE()
 
-- (NSView *)view
+- (UIView *)view
 {
   RCTSlider *slider = [RCTSlider new];
-  slider.continuous = YES;
-  [slider setTarget:self];
-  [slider setAction:@selector(sliderValueChanged:)];
+  [slider addTarget:self action:@selector(sliderValueChanged:)
+   forControlEvents:UIControlEventValueChanged];
+  [slider addTarget:self action:@selector(sliderTouchEnd:)
+   forControlEvents:(UIControlEventTouchUpInside |
+                     UIControlEventTouchUpOutside |
+                     UIControlEventTouchCancel)];
   return slider;
 }
 
-- (void)sliderValueChanged:(RCTSlider*)sender {
-  float value = sender.floatValue;
-  NSEvent *event = [[NSApplication sharedApplication] currentEvent];
-  BOOL endingDrag = event.type == NSLeftMouseUp;
-  if (!endingDrag) {
-    sender.onValueChange(@{@"value": @(value)});
+static void RCTSendSliderEvent(RCTSlider *sender, BOOL continuous)
+{
+  float value = sender.value;
+
+  if (sender.step > 0 &&
+      sender.step <= (sender.maximumValue - sender.minimumValue)) {
+
+    value =
+      MAX(sender.minimumValue,
+        MIN(sender.maximumValue,
+          sender.minimumValue + round((sender.value - sender.minimumValue) / sender.step) * sender.step
+        )
+      );
+
+    [sender setValue:value animated:YES];
+  }
+
+  if (continuous) {
+    if (sender.onValueChange && sender.lastValue != value) {
+      sender.onValueChange(@{
+        @"value": @(value),
+      });
+    }
   } else {
     if (sender.onSlidingComplete) {
-      sender.onSlidingComplete(@{@"value": @(value)});
+      sender.onSlidingComplete(@{
+        @"value": @(value),
+      });
     }
   }
+
+  sender.lastValue = value;
 }
 
+- (void)sliderValueChanged:(RCTSlider *)sender
+{
+  RCTSendSliderEvent(sender, YES);
+}
 
+- (void)sliderTouchEnd:(RCTSlider *)sender
+{
+  RCTSendSliderEvent(sender, NO);
+}
 
 RCT_EXPORT_VIEW_PROPERTY(value, float);
 RCT_EXPORT_VIEW_PROPERTY(step, float);
-RCT_EXPORT_VIEW_PROPERTY(trackImage, NSImage);
-RCT_EXPORT_VIEW_PROPERTY(minimumTrackImage, NSImage);
-RCT_EXPORT_VIEW_PROPERTY(maximumTrackImage, NSImage);
+RCT_EXPORT_VIEW_PROPERTY(trackImage, UIImage);
+RCT_EXPORT_VIEW_PROPERTY(minimumTrackImage, UIImage);
+RCT_EXPORT_VIEW_PROPERTY(maximumTrackImage, UIImage);
 RCT_EXPORT_VIEW_PROPERTY(minimumValue, float);
 RCT_EXPORT_VIEW_PROPERTY(maximumValue, float);
-RCT_EXPORT_VIEW_PROPERTY(minimumTrackTintColor, NSColor);
-RCT_EXPORT_VIEW_PROPERTY(maximumTrackTintColor, NSColor);
+RCT_EXPORT_VIEW_PROPERTY(minimumTrackTintColor, UIColor);
+RCT_EXPORT_VIEW_PROPERTY(maximumTrackTintColor, UIColor);
 RCT_EXPORT_VIEW_PROPERTY(onValueChange, RCTBubblingEventBlock);
 RCT_EXPORT_VIEW_PROPERTY(onSlidingComplete, RCTBubblingEventBlock);
-
+RCT_EXPORT_VIEW_PROPERTY(thumbImage, UIImage);
 RCT_CUSTOM_VIEW_PROPERTY(disabled, BOOL, RCTSlider)
 {
   if (json) {

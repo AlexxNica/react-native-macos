@@ -11,12 +11,12 @@
  */
 'use strict';
 
-var React = require('React');
+var React = require('react');
 var ReactNative = require('react-native');
 var { View } = ReactNative;
 var { TestModule } = ReactNative.NativeModules;
 
-class PromiseTest extends React.Component {
+class PromiseTest extends React.Component<{}> {
   shouldResolve = false;
   shouldReject = false;
   shouldSucceedAsync = false;
@@ -66,7 +66,7 @@ class PromiseTest extends React.Component {
     }
   };
 
-  render(): React.Element<any> {
+  render(): React.Node {
     return <View />;
   }
 }

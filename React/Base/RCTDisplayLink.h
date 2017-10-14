@@ -9,8 +9,6 @@
 
 #import <Foundation/Foundation.h>
 
-#define RCT_TIME_PER_FRAME 0.0166
-
 @protocol RCTBridgeModule;
 @class RCTModuleData;
 

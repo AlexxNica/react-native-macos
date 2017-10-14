@@ -8,12 +8,6 @@
  */
 'use strict';
 
-jest
-  .unmock('AssetRegistry')
-  .unmock('AssetSourceResolver')
-  .unmock('../resolveAssetSource')
-  .unmock('../../../local-cli/bundle/assetPathUtils');
-
 var AssetRegistry = require('AssetRegistry');
 var Platform = require('Platform');
 var NativeModules = require('NativeModules');
@@ -128,7 +122,7 @@ describe('resolveAssetSource', () => {
         __packager_asset: true,
         width: 100,
         height: 200,
-        uri: '/Path/To/Sample.app/assets/module/a/logo.png',
+        uri: 'file:///Path/To/Sample.app/assets/module/a/logo.png',
         scale: 1,
       });
     });
@@ -157,34 +151,6 @@ describe('resolveAssetSource', () => {
         width: 100,
         height: 200,
         uri: 'awesomemodule_subdir_logo1_',
-        scale: 1,
-      });
-    });
-  });
-
-  describe('bundle was loaded from file on Android', () => {
-    beforeEach(() => {
-      NativeModules.SourceCode.scriptURL =
-        'file:///sdcard/Path/To/Simulator/main.bundle';
-      Platform.OS = 'android';
-    });
-
-    it('uses pre-packed image', () => {
-      expectResolvesAsset({
-        __packager_asset: true,
-        fileSystemLocation: '/root/app/module/a',
-        httpServerLocation: '/assets/AwesomeModule/Subdir',
-        width: 100,
-        height: 200,
-        scales: [1],
-        hash: '5b6f00f',
-        name: '!@Logo#1_€',
-        type: 'png',
-      }, {
-        __packager_asset: true,
-        width: 100,
-        height: 200,
-        uri: 'file:///sdcard/Path/To/Simulator/drawable-mdpi/awesomemodule_subdir_logo1_.png',
         scale: 1,
       });
     });

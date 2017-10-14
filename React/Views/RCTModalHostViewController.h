@@ -7,12 +7,14 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
-@interface RCTModalHostViewController : NSViewController
+@interface RCTModalHostViewController : UIViewController
 
 @property (nonatomic, copy) void (^boundsDidChangeBlock)(CGRect newBounds);
-@property (nonatomic, copy) void (^initCompletionHandler)(NSWindow *window);
-@property (nonatomic, copy) void (^closeCompletionHandler)();
+
+#if !TARGET_OS_TV
+@property (nonatomic, assign) UIInterfaceOrientationMask supportedInterfaceOrientations;
+#endif
 
 @end

@@ -7,8 +7,6 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
-
 #import "RCTViewManager.h"
 
 #import "RCTBorderStyle.h"
@@ -18,14 +16,39 @@
 #import "RCTLog.h"
 #import "RCTShadowView.h"
 #import "RCTUIManager.h"
+#import "RCTUIManagerUtils.h"
 #import "RCTUtils.h"
 #import "RCTView.h"
-#import "NSView+React.h"
+#import "UIView+React.h"
 #import "RCTConvert+Transform.h"
 
 #if TARGET_OS_TV
 #import "RCTTVView.h"
 #endif
+
+@implementation RCTConvert(UIAccessibilityTraits)
+
+RCT_MULTI_ENUM_CONVERTER(UIAccessibilityTraits, (@{
+  @"none": @(UIAccessibilityTraitNone),
+  @"button": @(UIAccessibilityTraitButton),
+  @"link": @(UIAccessibilityTraitLink),
+  @"header": @(UIAccessibilityTraitHeader),
+  @"search": @(UIAccessibilityTraitSearchField),
+  @"image": @(UIAccessibilityTraitImage),
+  @"selected": @(UIAccessibilityTraitSelected),
+  @"plays": @(UIAccessibilityTraitPlaysSound),
+  @"key": @(UIAccessibilityTraitKeyboardKey),
+  @"text": @(UIAccessibilityTraitStaticText),
+  @"summary": @(UIAccessibilityTraitSummaryElement),
+  @"disabled": @(UIAccessibilityTraitNotEnabled),
+  @"frequentUpdates": @(UIAccessibilityTraitUpdatesFrequently),
+  @"startsMedia": @(UIAccessibilityTraitStartsMediaSession),
+  @"adjustable": @(UIAccessibilityTraitAdjustable),
+  @"allowsDirectInteraction": @(UIAccessibilityTraitAllowsDirectInteraction),
+  @"pageTurn": @(UIAccessibilityTraitCausesPageTurn),
+}), UIAccessibilityTraitNone, unsignedLongLongValue)
+
+@end
 
 @implementation RCTViewManager
 
@@ -38,7 +61,7 @@ RCT_EXPORT_MODULE()
   return RCTGetUIManagerQueue();
 }
 
-- (NSView *)view
+- (UIView *)view
 {
 #if TARGET_OS_TV
   return [RCTTVView new];
@@ -70,10 +93,6 @@ RCT_EXPORT_MODULE()
     @"touchMove",
     @"touchCancel",
     @"touchEnd",
-
-    // Mouse events
-    @"mouseEnter",
-    @"mouseLeave",
   ];
 }
 
@@ -87,16 +106,6 @@ RCT_EXPORT_MODULE()
   return nil;
 }
 
-- (void)checkLayerExists:(NSView *)view
-{
-  if (!view.layer) {
-    [view setWantsLayer:YES];
-    CALayer *viewLayer = [CALayer layer];
-    viewLayer.delegate = view;
-    [view setLayer:viewLayer];
-  }
-}
-
 #pragma mark - View properties
 
 #if TARGET_OS_TV
@@ -106,18 +115,24 @@ RCT_EXPORT_VIEW_PROPERTY(hasTVPreferredFocus, BOOL)
 RCT_EXPORT_VIEW_PROPERTY(tvParallaxProperties, NSDictionary)
 #endif
 
-// RCT_REMAP_VIEW_PROPERTY(accessible, isAccessibilityElement, BOOL)
-RCT_EXPORT_VIEW_PROPERTY(accessibilityLabel, NSString)
-RCT_EXPORT_VIEW_PROPERTY(accessibilityTraits, UIAccessibilityTraits)
-RCT_EXPORT_VIEW_PROPERTY(accessibilityViewIsModal, BOOL)
-RCT_EXPORT_VIEW_PROPERTY(backgroundColor, NSColor)
-RCT_REMAP_VIEW_PROPERTY(testID, accessibilityIdentifier, NSString)
+RCT_EXPORT_VIEW_PROPERTY(nativeID, NSString)
+
+// Acessibility related properties
+RCT_REMAP_VIEW_PROPERTY(accessible, reactAccessibilityElement.isAccessibilityElement, BOOL)
+RCT_REMAP_VIEW_PROPERTY(accessibilityLabel, reactAccessibilityElement.accessibilityLabel, NSString)
+RCT_REMAP_VIEW_PROPERTY(accessibilityTraits, reactAccessibilityElement.accessibilityTraits, UIAccessibilityTraits)
+RCT_REMAP_VIEW_PROPERTY(accessibilityViewIsModal, reactAccessibilityElement.accessibilityViewIsModal, BOOL)
+RCT_REMAP_VIEW_PROPERTY(onAccessibilityTap, reactAccessibilityElement.onAccessibilityTap, RCTDirectEventBlock)
+RCT_REMAP_VIEW_PROPERTY(onMagicTap, reactAccessibilityElement.onMagicTap, RCTDirectEventBlock)
+RCT_REMAP_VIEW_PROPERTY(testID, reactAccessibilityElement.accessibilityIdentifier, NSString)
+
+RCT_EXPORT_VIEW_PROPERTY(backgroundColor, UIColor)
 RCT_REMAP_VIEW_PROPERTY(backfaceVisibility, layer.doubleSided, css_backface_visibility_t)
+RCT_REMAP_VIEW_PROPERTY(opacity, alpha, CGFloat)
 RCT_REMAP_VIEW_PROPERTY(shadowColor, layer.shadowColor, CGColor)
 RCT_REMAP_VIEW_PROPERTY(shadowOffset, layer.shadowOffset, CGSize)
 RCT_REMAP_VIEW_PROPERTY(shadowOpacity, layer.shadowOpacity, float)
 RCT_REMAP_VIEW_PROPERTY(shadowRadius, layer.shadowRadius, CGFloat)
-RCT_REMAP_VIEW_PROPERTY(toolTip, toolTip, NSString)
 RCT_CUSTOM_VIEW_PROPERTY(overflow, YGOverflow, RCTView)
 {
   if (json) {
@@ -129,43 +144,15 @@ RCT_CUSTOM_VIEW_PROPERTY(overflow, YGOverflow, RCTView)
 RCT_CUSTOM_VIEW_PROPERTY(shouldRasterizeIOS, BOOL, RCTView)
 {
   view.layer.shouldRasterize = json ? [RCTConvert BOOL:json] : defaultView.layer.shouldRasterize;
-  view.layer.rasterizationScale = view.layer.shouldRasterize ? [NSScreen mainScreen].backingScaleFactor : defaultView.layer.rasterizationScale;
+  view.layer.rasterizationScale = view.layer.shouldRasterize ? [UIScreen mainScreen].scale : defaultView.layer.rasterizationScale;
 }
 
 RCT_CUSTOM_VIEW_PROPERTY(transform, CATransform3D, RCTView)
 {
-  CATransform3D transform = json ? [RCTConvert CATransform3D:json] : defaultView.layer.transform;
-  if ([view respondsToSelector:@selector(shouldBeTransformed)] && !view.superview) {
-    view.shouldBeTransformed = YES;
-    view.transform = transform;
-  } else {
-    view.layer.transform = transform;
-  }
-
+  view.layer.transform = json ? [RCTConvert CATransform3D:json] : defaultView.layer.transform;
   // TODO: Improve this by enabling edge antialiasing only for transforms with rotation or skewing
-  view.layer.edgeAntialiasingMask = !CATransform3DIsIdentity(transform);
+  view.layer.allowsEdgeAntialiasing = !CATransform3DIsIdentity(view.layer.transform);
 }
-
-RCT_CUSTOM_VIEW_PROPERTY(draggedTypes, NSArray*<NSString *>, RCTView)
-{
-    if (json) {
-        NSArray *types = [RCTConvert NSArray:json];
-        [view registerForDraggedTypes:types];
-    } else {
-        [view registerForDraggedTypes:defaultView.registeredDraggedTypes];
-    }
-}
-
-RCT_CUSTOM_VIEW_PROPERTY(opacity, float, RCTView)
-{
-    if (json) {
-        [self checkLayerExists:view];
-        [view.layer setOpacity:[RCTConvert float:json]];
-    } else {
-        [view.layer setOpacity:defaultView.layer.opacity];
-    }
-}
-
 
 RCT_CUSTOM_VIEW_PROPERTY(pointerEvents, RCTPointerEvents, RCTView)
 {
@@ -173,9 +160,27 @@ RCT_CUSTOM_VIEW_PROPERTY(pointerEvents, RCTPointerEvents, RCTView)
     view.pointerEvents = json ? [RCTConvert RCTPointerEvents:json] : defaultView.pointerEvents;
     return;
   }
+
+  if (!json) {
+    view.userInteractionEnabled = defaultView.userInteractionEnabled;
+    return;
+  }
+
+  switch ([RCTConvert RCTPointerEvents:json]) {
+    case RCTPointerEventsUnspecified:
+      // Pointer events "unspecified" acts as if a stylesheet had not specified,
+      // which is different than "auto" in CSS (which cannot and will not be
+      // supported in `React`. "auto" may override a parent's "none".
+      // Unspecified values do not.
+      // This wouldn't override a container view's `userInteractionEnabled = NO`
+      view.userInteractionEnabled = YES;
+    case RCTPointerEventsNone:
+      view.userInteractionEnabled = NO;
+      break;
+    default:
+      RCTLogError(@"UIView base class does not support pointerEvent value: %@", json);
+  }
 }
-
-
 RCT_CUSTOM_VIEW_PROPERTY(removeClippedSubviews, BOOL, RCTView)
 {
   if ([view respondsToSelector:@selector(setRemoveClippedSubviews:)]) {
@@ -184,7 +189,6 @@ RCT_CUSTOM_VIEW_PROPERTY(removeClippedSubviews, BOOL, RCTView)
 }
 RCT_CUSTOM_VIEW_PROPERTY(borderRadius, CGFloat, RCTView) {
   if ([view respondsToSelector:@selector(setBorderRadius:)]) {
-    [self checkLayerExists:view];
     view.borderRadius = json ? [RCTConvert CGFloat:json] : defaultView.borderRadius;
   } else {
     view.layer.cornerRadius = json ? [RCTConvert CGFloat:json] : defaultView.layer.cornerRadius;
@@ -193,7 +197,6 @@ RCT_CUSTOM_VIEW_PROPERTY(borderRadius, CGFloat, RCTView) {
 RCT_CUSTOM_VIEW_PROPERTY(borderColor, CGColor, RCTView)
 {
   if ([view respondsToSelector:@selector(setBorderColor:)]) {
-    [self checkLayerExists:view];
     view.borderColor = json ? [RCTConvert CGColor:json] : defaultView.borderColor;
   } else {
     view.layer.borderColor = json ? [RCTConvert CGColor:json] : defaultView.layer.borderColor;
@@ -202,7 +205,6 @@ RCT_CUSTOM_VIEW_PROPERTY(borderColor, CGColor, RCTView)
 RCT_CUSTOM_VIEW_PROPERTY(borderWidth, float, RCTView)
 {
   if ([view respondsToSelector:@selector(setBorderWidth:)]) {
-    [self checkLayerExists:view];
     view.borderWidth = json ? [RCTConvert CGFloat:json] : defaultView.borderWidth;
   } else {
     view.layer.borderWidth = json ? [RCTConvert CGFloat:json] : defaultView.layer.borderWidth;
@@ -214,37 +216,14 @@ RCT_CUSTOM_VIEW_PROPERTY(borderStyle, RCTBorderStyle, RCTView)
     view.borderStyle = json ? [RCTConvert RCTBorderStyle:json] : defaultView.borderStyle;
   }
 }
-RCT_EXPORT_VIEW_PROPERTY(onAccessibilityTap, RCTDirectEventBlock)
-RCT_EXPORT_VIEW_PROPERTY(onMagicTap, RCTDirectEventBlock)
-RCT_EXPORT_VIEW_PROPERTY(onDragEnter, RCTDirectEventBlock)
-RCT_EXPORT_VIEW_PROPERTY(onDragLeave, RCTDirectEventBlock)
-RCT_EXPORT_VIEW_PROPERTY(onDrop, RCTDirectEventBlock)
-RCT_EXPORT_VIEW_PROPERTY(onContextMenuItemClick, RCTDirectEventBlock)
-
-RCT_CUSTOM_VIEW_PROPERTY(contextMenu, NSArray*<NSDictionary *>, __unused RCTView)
+RCT_CUSTOM_VIEW_PROPERTY(hitSlop, UIEdgeInsets, RCTView)
 {
-  if ([view respondsToSelector:@selector(setMenu:)] && json) {
-    NSArray *menuList = [RCTConvert NSArray:json];
-    if (menuList.count > 0) {
-      NSMenu *menu = [[NSMenu alloc] init];
-      for (NSUInteger i = 0; i < menuList.count; i++)
-      {
-        if (menuList[i][@"isSeparator"]) {
-          [menu addItem:[NSMenuItem separatorItem]];
-        } else {
-          NSMenuItem *menuItem = [[NSMenuItem alloc] init];
-          [menuItem setTarget:view];
-          [menuItem setAction:@selector(contextMenuItemClicked:)];
-          if (menuList[i][@"key"]) {
-            [menuItem setKeyEquivalent:menuList[i][@"key"]];
-          }
-
-          [menuItem setRepresentedObject:menuList[i]];
-          menuItem.title = menuList[i][@"title"];
-          [menu addItem:menuItem];
-        }
-      }
-      [view setMenu:menu];
+  if ([view respondsToSelector:@selector(setHitTestEdgeInsets:)]) {
+    if (json) {
+      UIEdgeInsets hitSlopInsets = [RCTConvert UIEdgeInsets:json];
+      view.hitTestEdgeInsets = UIEdgeInsetsMake(-hitSlopInsets.top, -hitSlopInsets.left, -hitSlopInsets.bottom, -hitSlopInsets.right);
+    } else {
+      view.hitTestEdgeInsets = defaultView.hitTestEdgeInsets;
     }
   }
 }
@@ -253,14 +232,12 @@ RCT_CUSTOM_VIEW_PROPERTY(contextMenu, NSArray*<NSDictionary *>, __unused RCTView
 RCT_CUSTOM_VIEW_PROPERTY(border##SIDE##Width, float, RCTView)           \
 {                                                                       \
   if ([view respondsToSelector:@selector(setBorder##SIDE##Width:)]) {   \
-    [self checkLayerExists:view];                                       \
     view.border##SIDE##Width = json ? [RCTConvert CGFloat:json] : defaultView.border##SIDE##Width; \
   }                                                                     \
 }                                                                       \
-RCT_CUSTOM_VIEW_PROPERTY(border##SIDE##Color, NSColor, RCTView)         \
+RCT_CUSTOM_VIEW_PROPERTY(border##SIDE##Color, UIColor, RCTView)         \
 {                                                                       \
   if ([view respondsToSelector:@selector(setBorder##SIDE##Color:)]) {   \
-    [self checkLayerExists:view];                                       \
     view.border##SIDE##Color = json ? [RCTConvert CGColor:json] : defaultView.border##SIDE##Color; \
   }                                                                     \
 }
@@ -283,16 +260,17 @@ RCT_VIEW_BORDER_RADIUS_PROPERTY(TopRight)
 RCT_VIEW_BORDER_RADIUS_PROPERTY(BottomLeft)
 RCT_VIEW_BORDER_RADIUS_PROPERTY(BottomRight)
 
+RCT_REMAP_VIEW_PROPERTY(display, reactDisplay, YGDisplay)
 RCT_REMAP_VIEW_PROPERTY(zIndex, reactZIndex, NSInteger)
 
 #pragma mark - ShadowView properties
 
-RCT_EXPORT_SHADOW_PROPERTY(backgroundColor, NSColor)
+RCT_EXPORT_SHADOW_PROPERTY(backgroundColor, UIColor)
 
 RCT_EXPORT_SHADOW_PROPERTY(top, YGValue)
 RCT_EXPORT_SHADOW_PROPERTY(right, YGValue)
 RCT_EXPORT_SHADOW_PROPERTY(bottom, YGValue)
-RCT_EXPORT_SHADOW_PROPERTY(left, YGValue)
+RCT_EXPORT_SHADOW_PROPERTY(left, YGValue);
 
 RCT_EXPORT_SHADOW_PROPERTY(width, YGValue)
 RCT_EXPORT_SHADOW_PROPERTY(height, YGValue)
@@ -346,4 +324,3 @@ RCT_EXPORT_SHADOW_PROPERTY(zIndex, NSInteger)
 RCT_EXPORT_SHADOW_PROPERTY(direction, YGDirection)
 
 @end
-

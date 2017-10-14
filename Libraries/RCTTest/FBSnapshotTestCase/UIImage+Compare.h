@@ -28,10 +28,10 @@
 //  OTHER DEALINGS IN THE SOFTWARE.
 //
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
-@interface NSImage (Compare)
+@interface UIImage (Compare)
 
-- (BOOL)compareWithImage:(NSImage *)image;
+- (BOOL)compareWithImage:(UIImage *)image;
 
 @end

@@ -1,60 +1,67 @@
-# React Native macOS (ex react-native-desktop)
+# [React Native](https://facebook.github.io/react-native/) &middot;  [![Circle CI Status](https://circleci.com/gh/facebook/react-native.svg?style=shield)](https://circleci.com/gh/facebook/react-native) [![npm version](https://badge.fury.io/js/react-native.svg)](https://badge.fury.io/js/react-native) [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md#pull-requests)
 
-Build macOS desktop applications using React Native.
+Learn once, write anywhere: Build mobile apps with React.
 
-[![Build Status](https://travis-ci.org/ptmt/react-native-macos.svg)](https://travis-ci.org/ptmt/react-native-macos) [![npm version](https://badge.fury.io/js/react-native-macos.svg)](https://badge.fury.io/js/react-native-macos) [![discord #react-native-platforms](https://img.shields.io/badge/reactiflux-%23react--native--platforms-blue.svg)](http://reactiflux.com)
+- **Build native mobile apps using JavaScript and React:** React Native lets you build mobile apps using only JavaScript. It uses the same design as [React](https://facebook.github.io/react), letting you compose a rich mobile UI from declarative components.
+- **A React Native app is a real mobile app:** With React Native, you don't build a "mobile web app", an "HTML5 app", or a "hybrid app". You build a real mobile app that's indistinguishable from an app built using Objective-C, Java, or Swift. React Native uses the same fundamental UI building blocks as regular iOS and Android apps. You just put those building blocks together using JavaScript and React.
+- **Don't waste time recompiling:** React Native lets you build your app faster. Instead of recompiling, you can reload your app instantly. With hot reloading, you can even run new code while retaining your application state. Give it a try - it's a magical experience.
+- **Use native code when you need to:** React Native combines smoothly with components written in Objective-C, Java, or Swift. It's simple to drop down to native code if you need to optimize a few aspects of your application. It's also easy to build part of your app in React Native, and part of your app using native code directly - that's how the Facebook app works.
 
-```jsx
-<View>
-  <Button onClick={() => alert('clicked!')} />
-</View>
-```
+The focus of React Native is on developer efficiency across all the platforms you care about - learn once, write anywhere. Facebook uses React Native in multiple production apps and will continue investing in React Native.
+
+See the official [React Native website](https://facebook.github.io/react-native/) for an introduction to React Native.
+
+Supported operating systems are >= Android 4.1 (API 16) and >= iOS 8.0.
+
+- [Getting Started](#getting-started)
+- [Getting Help](#getting-help)
+- [Documentation](#documentation)
+- [Upgrading](#upgrading)
+- [Contributing](#contributing)
+- [License](#license)
 
 ## Getting Started
 
-Node 4.x+, OS X 10.11+ required.
+Follow the [Getting Started guide](https://facebook.github.io/react-native/docs/getting-started.html). The recommended way to install React Native depends on your project. Here you can find short guides for the most common scenarios:
 
-_Previous React Native experience is highly recommended_.
-
-```bash
-$ npm install react-native-macos-cli -g
-$ react-native-macos init MyProject
-$ cd MyProject
-$ react-native-macos run-macos
-```
-
-If you want to add macOS target to the existing iOS/Android/Windows project, make the steps above, merge this new folder into your current React Native project, then put [rn-cli.config.js](https://gist.github.com/ptmt/b1473dead098cf53d667e355aedf2a7b) in the root.
+- [Trying out React Native](https://snack.expo.io/BJ-uC-nrb)
+- [Creating a New Application](http://facebook.github.io/react-native/docs/getting-started.html)
+- [Adding React Native to an Existing Application](http://facebook.github.io/react-native/docs/integration-with-existing-apps.html)
 
 ## Documentation
 
-Since React Native macOS is just a fork, you can follow [the same instructions on the React Native Documentation](http://facebook.github.io/react-native/docs/getting-started.html#content).
+[The website’s documentation](https://facebook.github.io/react-native/docs/) is divided into multiple sections.
+- There are **Guides** that discuss topics like [debugging](https://facebook.github.io/react-native/docs/debugging.html), [integrating with existing apps](https://facebook.github.io/react-native/docs/integration-with-existing-apps.html), and [the gesture responder system](https://facebook.github.io/react-native/docs/gesture-responder-system.html).
+- The **Components** section covers React components such as [`View`](https://facebook.github.io/react-native/docs/view.html) and [`Button`](https://facebook.github.io/react-native/docs/button.html).
+- The **APIs** section covers other libraries like [Animated](https://facebook.github.io/react-native/docs/animated.html) and [StyleSheet](https://facebook.github.io/react-native/docs/stylesheet.html) that aren’t React components themselves.
+- Finally, React Native provides a small number of **Polyfills** that offer web-like APIs.
 
-## Disclaimer
+Another great way to learn more about the components and APIs included with React Native is to read their source. Look under the `Libraries/Components` directory for components like `ScrollView` and `TextInput`, for example. The RNTester example is also here to demonstrate some of the ways to use these components. From the source you can get an accurate understanding of each component’s behavior and API.
 
-React Native macOS is a fork of React Native for iOS. The project is still a fairly new so proceed at your own risk.
+The React Native documentation only discusses the components, APIs and topics specific to React Native (React on iOS and Android). For further documentation on the React API that is shared between React Native and React DOM, refer to the [React documentation](https://facebook.github.io/react/).
 
-## Community Help
+## Upgrading
 
-Please use these community resources for getting help. We use the GitHub issues for tracking bugs and feature requests and have limited bandwidth to address them.
+React Native is under active development. See the guide on [upgrading React Native](https://facebook.github.io/react-native/docs/upgrading.html) to keep your project up-to-date.
 
-- Ask a question on [StackOverflow](https://stackoverflow.com/) and tag it with `react-native-macos`
-- Chat with us on [Reactiflux](https://discord.gg/0ZcbPKXt5bWJVmUY) in `#react-native-platforms` (mentioning @ptmt)
-- DM @ptmt on twitter
+## Contributing
 
-## Examples
+Read below to learn how you can take part in improving React Native.
 
-### UIExplorer
+### [Code of Conduct](https://code.facebook.com/codeofconduct)
 
-UIExplorer includes a set of component examples that illustrate their functionality. It also allows you to load external JavaScript bundle files through HTTP. Simply copy and paste a URL into the Search Field.
+Facebook has adopted a Code of Conduct that we expect project participants to adhere to. Please read [the full text](https://code.facebook.com/codeofconduct) so that you can understand what actions will and will not be tolerated.
 
-[Download UIExplorer](https://github.com/ptmt/react-native-macos/files/199128/UIExplorer.zip)
+### Contributing Guide
 
-![screenshot 2016-03-31 21 06 33](https://cloud.githubusercontent.com/assets/1004115/14185918/91648d8c-f784-11e5-82b6-fcd08b74b89a.png)
+Read our [contributing guide](https://facebook.github.io/react-native/docs/contributing.html) to learn about our development process, how to propose bug fixes and improvements, and how to build and test your changes to React Native.
 
-![screenshot 2016-03-31 21 00 30](https://cloud.githubusercontent.com/assets/1004115/14185806/1cd2dfdc-f784-11e5-8c14-de0ca21f7ead.png)
+### Beginner Friendly Bugs
 
-![screenshot 2015-10-24 16 40 36](https://cloud.githubusercontent.com/assets/1004115/14185895/7c133eb0-f784-11e5-8e3c-ca36aa351a26.png)
+We have a list of [beginner friendly issues](https://github.com/facebook/react-native/labels/Good%20First%20Task) to help you get your feet wet in the React Native codebase and familiar with our contribution process. This is a great place to get started.
 
 ## License
 
-See license for React is [BSD licensed](./LICENSE). Facebook also provide an additional [patent grant](./PATENTS).
+React Native is [BSD licensed](./LICENSE). We also provide an additional [patent grant](./PATENTS).
+
+React documentation is [Creative Commons licensed](./LICENSE-docs).

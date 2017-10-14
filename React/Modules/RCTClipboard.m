@@ -8,8 +8,8 @@
  */
 
 #import "RCTClipboard.h"
-#import <AppKit/AppKit.h>
-#import <React/RCTUtils.h>
+
+#import <UIKit/UIKit.h>
 
 @implementation RCTClipboard
 
@@ -23,16 +23,15 @@ RCT_EXPORT_MODULE()
 
 RCT_EXPORT_METHOD(setString:(NSString *)content)
 {
-  NSPasteboard *clipboard = [NSPasteboard generalPasteboard];
-  [clipboard clearContents];
-  [clipboard writeObjects:[NSArray arrayWithObject:content]];
+  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
+  clipboard.string = (content ? : @"");
 }
 
 RCT_EXPORT_METHOD(getString:(RCTPromiseResolveBlock)resolve
                   rejecter:(__unused RCTPromiseRejectBlock)reject)
 {
-  NSPasteboard *clipboard = [NSPasteboard generalPasteboard];
-  resolve(@[RCTNullIfNil([clipboard  stringForType:NSPasteboardTypeString])]);
+  UIPasteboard *clipboard = [UIPasteboard generalPasteboard];
+  resolve((clipboard.string ? : @""));
 }
 
 @end

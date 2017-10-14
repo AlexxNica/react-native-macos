@@ -7,21 +7,21 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTBridgeModule.h>
 #import <React/RCTConvert.h>
 #import <React/RCTDefines.h>
 #import <React/RCTEventDispatcher.h>
 #import <React/RCTLog.h>
-#import <React/NSView+React.h>
+#import <React/UIView+React.h>
 
 @class RCTBridge;
 @class RCTShadowView;
 @class RCTSparseArray;
 @class RCTUIManager;
 
-typedef void (^RCTViewManagerUIBlock)(RCTUIManager *uiManager, NSDictionary<NSNumber *, NSView *> *viewRegistry);
+typedef void (^RCTViewManagerUIBlock)(RCTUIManager *uiManager, NSDictionary<NSNumber *, UIView *> *viewRegistry);
 
 @interface RCTViewManager : NSObject <RCTBridgeModule>
 
@@ -39,7 +39,7 @@ typedef void (^RCTViewManagerUIBlock)(RCTUIManager *uiManager, NSDictionary<NSNu
  * return a fresh instance each time. The view module MUST NOT cache the returned
  * view and return the same instance for subsequent calls.
  */
-- (NSView *)view;
+- (UIView *)view;
 
 /**
  * This method instantiates a shadow view to be managed by the module. If omitted,

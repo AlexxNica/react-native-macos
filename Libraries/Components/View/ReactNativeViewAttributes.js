@@ -25,18 +25,14 @@ ReactNativeViewAttributes.UIView = {
   importantForAccessibility: true,
   nativeID: true,
   testID: true,
-  testRole: true,
   renderToHardwareTextureAndroid: true,
   shouldRasterizeIOS: true,
   onLayout: true,
-  onMouseEnter: true,
-  onMouseLeave: true,
   onAccessibilityTap: true,
   onMagicTap: true,
   collapsable: true,
   needsOffscreenAlphaCompositing: true,
   style: ReactNativeStyleAttributes,
-  toolTip: true,
 };
 
 ReactNativeViewAttributes.RCTView = {

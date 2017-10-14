@@ -7,27 +7,18 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTComponent.h>
+#import <React/RCTView.h>
 
-@class RCTEventDispatcher;
+#import "RCTTextInput.h"
 
-@interface TextFieldCellWithPaddings : NSTextFieldCell
-@end
+@class RCTUITextField;
 
-@interface RCTTextField : NSTextField <NSTextFieldDelegate, NSTextViewDelegate>
+@interface RCTTextField : RCTTextInput
 
 @property (nonatomic, assign) BOOL caretHidden;
-@property (nonatomic, assign) BOOL selectTextOnFocus;
-@property (nonatomic, assign) NSEdgeInsets contentInset;
-@property (nonatomic, strong) NSColor *placeholderTextColor;
-@property (nonatomic, strong) NSColor *selectionColor;
-@property (nonatomic, assign) NSInteger mostRecentEventCount;
 @property (nonatomic, strong) NSNumber *maxLength;
-
-@property (nonatomic, copy) RCTDirectEventBlock onSelectionChange;
-
-- (instancetype)initWithEventDispatcher:(RCTEventDispatcher *)eventDispatcher NS_DESIGNATED_INITIALIZER;
 
 @end

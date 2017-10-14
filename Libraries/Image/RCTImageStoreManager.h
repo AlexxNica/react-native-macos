@@ -1,6 +1,6 @@
 // Copyright 2004-present Facebook. All Rights Reserved.
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTBridge.h>
 #import <React/RCTURLRequestHandler.h>
@@ -19,7 +19,7 @@
  * Convenience method to store an image directly (image is converted to data
  * internally, so any metadata such as scale or orientation will be lost).
  */
-- (void)storeImage:(NSImage *)image withBlock:(void (^)(NSString *imageTag))block;
+- (void)storeImage:(UIImage *)image withBlock:(void (^)(NSString *imageTag))block;
 
 @end
 
@@ -28,9 +28,9 @@
 /**
  * These methods are deprecated - use the data-based alternatives instead.
  */
-- (NSString *)storeImage:(NSImage *)image __deprecated;
-- (NSImage *)imageForTag:(NSString *)imageTag __deprecated;
-- (void)getImageForTag:(NSString *)imageTag withBlock:(void (^)(NSImage *image))block __deprecated;
+- (NSString *)storeImage:(UIImage *)image __deprecated;
+- (UIImage *)imageForTag:(NSString *)imageTag __deprecated;
+- (void)getImageForTag:(NSString *)imageTag withBlock:(void (^)(UIImage *image))block __deprecated;
 
 @end
 

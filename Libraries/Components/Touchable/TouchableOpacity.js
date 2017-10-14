@@ -22,12 +22,13 @@ var TimerMixin = require('react-timer-mixin');
 var Touchable = require('Touchable');
 var TouchableWithoutFeedback = require('TouchableWithoutFeedback');
 
+var createReactClass = require('create-react-class');
 var ensurePositiveDelayProps = require('ensurePositiveDelayProps');
 var flattenStyle = require('flattenStyle');
 
 type Event = Object;
 
-var PRESS_RETENTION_OFFSET = { top: 20, left: 20, right: 20, bottom: 30 };
+var PRESS_RETENTION_OFFSET = {top: 20, left: 20, right: 20, bottom: 30};
 
 /**
  * A wrapper for making views respond properly to touches.
@@ -50,8 +51,75 @@ var PRESS_RETENTION_OFFSET = { top: 20, left: 20, right: 20, bottom: 30 };
  *   );
  * },
  * ```
+ * ### Example
+ *
+ * ```ReactNativeWebPlayer
+ * import React, { Component } from 'react'
+ * import {
+ *   AppRegistry,
+ *   StyleSheet,
+ *   TouchableOpacity,
+ *   Text,
+ *   View,
+ * } from 'react-native'
+ *
+ * class App extends Component {
+ *   constructor(props) {
+ *     super(props)
+ *     this.state = { count: 0 }
+ *   }
+ *
+ *   onPress = () => {
+ *     this.setState({
+ *       count: this.state.count+1
+ *     })
+ *   }
+ *
+ *  render() {
+ *    return (
+ *      <View style={styles.container}>
+ *        <TouchableOpacity
+ *          style={styles.button}
+ *          onPress={this.onPress}
+ *        >
+ *          <Text> Touch Here </Text>
+ *        </TouchableOpacity>
+ *        <View style={[styles.countContainer]}>
+ *          <Text style={[styles.countText]}>
+ *             { this.state.count !== 0 ? this.state.count: null}
+ *           </Text>
+ *         </View>
+ *       </View>
+ *     )
+ *   }
+ * }
+ *
+ * const styles = StyleSheet.create({
+ *   container: {
+ *     flex: 1,
+ *     justifyContent: 'center',
+ *     paddingHorizontal: 10
+ *   },
+ *   button: {
+ *     alignItems: 'center',
+ *     backgroundColor: '#DDDDDD',
+ *     padding: 10
+ *   },
+ *   countContainer: {
+ *     alignItems: 'center',
+ *     padding: 10
+ *   },
+ *   countText: {
+ *     color: '#FF00FF'
+ *   }
+ * })
+ *
+ * AppRegistry.registerComponent('App', () => App)
+ * ```
+ *
  */
-var TouchableOpacity = React.createClass({
+var TouchableOpacity = createReactClass({
+  displayName: 'TouchableOpacity',
   mixins: [TimerMixin, Touchable.Mixin, NativeMethodsMixin],
 
   propTypes: {
@@ -61,7 +129,6 @@ var TouchableOpacity = React.createClass({
      * active. Defaults to 0.2.
      */
     activeOpacity: PropTypes.number,
-    focusedOpacity: PropTypes.number,
     /**
      * Apple TV parallax effects
      */
@@ -71,7 +138,6 @@ var TouchableOpacity = React.createClass({
   getDefaultProps: function() {
     return {
       activeOpacity: 0.2,
-      focusedOpacity: 0.7,
     };
   },
 
@@ -94,12 +160,15 @@ var TouchableOpacity = React.createClass({
    * Animate the touchable to a new opacity.
    */
   setOpacityTo: function(value: number, duration: number) {
-    Animated.timing(this.state.anim, {
-      toValue: value,
-      duration: duration,
-      easing: Easing.inOut(Easing.quad),
-      useNativeDriver: true,
-    }).start();
+    Animated.timing(
+      this.state.anim,
+      {
+        toValue: value,
+        duration: duration,
+        easing: Easing.inOut(Easing.quad),
+        useNativeDriver: true,
+      }
+    ).start();
   },
 
   /**
@@ -141,9 +210,8 @@ var TouchableOpacity = React.createClass({
   },
 
   touchableGetLongPressDelayMS: function() {
-    return this.props.delayLongPress === 0
-      ? 0
-      : this.props.delayLongPress || 500;
+    return this.props.delayLongPress === 0 ? 0 :
+      this.props.delayLongPress || 500;
   },
 
   touchableGetPressOutDelayMS: function() {
@@ -155,17 +223,16 @@ var TouchableOpacity = React.createClass({
   },
 
   _opacityInactive: function(duration: number) {
-    this.setOpacityTo(this._getChildStyleOpacityWithDefault(), duration);
-  },
-
-  _opacityFocused: function() {
-    this.setOpacityTo(this.props.focusedOpacity);
+    this.setOpacityTo(
+      this._getChildStyleOpacityWithDefault(),
+      duration
+    );
   },
 
   _getChildStyleOpacityWithDefault: function() {
-    var childStyle = flattenStyle(this.props.style) || {};
-    return childStyle.opacity == undefined ? 1 : childStyle.opacity;
-  },
+   var childStyle = flattenStyle(this.props.style) || {};
+   return childStyle.opacity == undefined ? 1 : childStyle.opacity;
+ },
 
   render: function() {
     return (
@@ -174,31 +241,21 @@ var TouchableOpacity = React.createClass({
         accessibilityLabel={this.props.accessibilityLabel}
         accessibilityComponentType={this.props.accessibilityComponentType}
         accessibilityTraits={this.props.accessibilityTraits}
-        style={[this.props.style, { opacity: this.state.anim }]}
+        style={[this.props.style, {opacity: this.state.anim}]}
         nativeID={this.props.nativeID}
         testID={this.props.testID}
-        testRole="AXTouchableOpacity"
         onLayout={this.props.onLayout}
         isTVSelectable={true}
         tvParallaxProperties={this.props.tvParallaxProperties}
         hitSlop={this.props.hitSlop}
         onStartShouldSetResponder={this.touchableHandleStartShouldSetResponder}
-        onResponderTerminationRequest={
-          this.touchableHandleResponderTerminationRequest
-        }
+        onResponderTerminationRequest={this.touchableHandleResponderTerminationRequest}
         onResponderGrant={this.touchableHandleResponderGrant}
         onResponderMove={this.touchableHandleResponderMove}
         onResponderRelease={this.touchableHandleResponderRelease}
-        onResponderTerminate={this.touchableHandleResponderTerminate}
-        onMouseEnter={this.props.onMouseEnter}
-        onMouseLeave={this.props.onMouseLeave}
-        onContextMenuItemClick={this.props.onContextMenuItemClick}
-        contextMenu={this.props.contextMenu}>
+        onResponderTerminate={this.touchableHandleResponderTerminate}>
         {this.props.children}
-        {Touchable.renderDebugView({
-          color: 'cyan',
-          hitSlop: this.props.hitSlop,
-        })}
+        {Touchable.renderDebugView({color: 'cyan', hitSlop: this.props.hitSlop})}
       </Animated.View>
     );
   },

@@ -11,19 +11,16 @@
 
 #import "RCTConvert.h"
 #import "RCTEventDispatcher.h"
-#import "NSView+React.h"
+#import "UIView+React.h"
 
 @implementation RCTSegmentedControl
 
 - (instancetype)initWithFrame:(CGRect)frame
 {
   if ((self = [super initWithFrame:frame])) {
-    _selectedIndex = self.selectedIndex;
-    [self setSegmentStyle:NSSegmentStyleRounded];
-    // TODO:
-
-//    [self addTarget:self action:@selector(didChange)
-//               forControlEvents:UIControlEventValueChanged];
+    _selectedIndex = self.selectedSegmentIndex;
+    [self addTarget:self action:@selector(didChange)
+               forControlEvents:UIControlEventValueChanged];
   }
   return self;
 }
@@ -31,31 +28,25 @@
 - (void)setValues:(NSArray<NSString *> *)values
 {
   _values = [values copy];
-  self.segmentCount = values.count;
-  for (NSUInteger i = 0; i < values.count; i++) {
-    //[self insertSegmentWithTitle:value atIndex:self.numberOfSegments animated:NO];
-    [self setLabel:[values objectAtIndex:i] forSegment:i];
+  [self removeAllSegments];
+  for (NSString *value in values) {
+    [self insertSegmentWithTitle:value atIndex:self.numberOfSegments animated:NO];
   }
-  self.selectedIndex = _selectedIndex;
+  super.selectedSegmentIndex = _selectedIndex;
 }
 
 - (void)setSelectedIndex:(NSInteger)selectedIndex
 {
   _selectedIndex = selectedIndex;
-  [super setSelectedSegment:selectedIndex];
-}
-
-- (BOOL)isFlipped
-{
-  return YES;
+  super.selectedSegmentIndex = selectedIndex;
 }
 
 - (void)didChange
 {
-  _selectedIndex = self.selectedIndex;
+  _selectedIndex = self.selectedSegmentIndex;
   if (_onChange) {
     _onChange(@{
-      @"value": [self labelForSegment:_selectedIndex],
+      @"value": [self titleForSegmentAtIndex:_selectedIndex],
       @"selectedSegmentIndex": @(_selectedIndex)
     });
   }

@@ -7,18 +7,22 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTEventEmitter.h>
 
 @interface RCTLinkingManager : RCTEventEmitter
 
-+ (BOOL)application:(NSApplication *)application
++ (BOOL)application:(UIApplication *)app
+            openURL:(NSURL *)URL
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options;
+
++ (BOOL)application:(UIApplication *)application
             openURL:(NSURL *)URL
   sourceApplication:(NSString *)sourceApplication
          annotation:(id)annotation;
 
-+ (BOOL)application:(NSApplication *)application
++ (BOOL)application:(UIApplication *)application
 continueUserActivity:(NSUserActivity *)userActivity
   restorationHandler:(void (^)(NSArray *))restorationHandler;
 

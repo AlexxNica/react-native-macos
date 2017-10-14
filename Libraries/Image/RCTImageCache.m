@@ -24,8 +24,8 @@ static const NSUInteger RCTMaxCachableDecodedImageSizeInBytes = 1048576; // 1MB
 static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size, CGFloat scale,
                                      RCTResizeMode resizeMode, NSString *responseDate)
 {
-    return [NSString stringWithFormat:@"%@|%g|%g|%g|%zd|%@",
-            imageTag, size.width, size.height, scale, resizeMode, responseDate];
+    return [NSString stringWithFormat:@"%@|%g|%g|%g|%lld|%@",
+            imageTag, size.width, size.height, scale, (long long)resizeMode, responseDate];
 }
 
 @implementation RCTImageCache
@@ -38,6 +38,15 @@ static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size, CGFloat sc
 {
   _decodedImageCache = [NSCache new];
   _decodedImageCache.totalCostLimit = 5 * 1024 * 1024; // 5MB
+
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(clearCache)
+                                               name:UIApplicationDidReceiveMemoryWarningNotification
+                                             object:nil];
+  [[NSNotificationCenter defaultCenter] addObserver:self
+                                           selector:@selector(clearCache)
+                                               name:UIApplicationWillResignActiveNotification
+                                             object:nil];
 
   return self;
 }
@@ -52,13 +61,13 @@ static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size, CGFloat sc
   [_decodedImageCache removeAllObjects];
 }
 
-- (void)addImageToCache:(NSImage *)image
+- (void)addImageToCache:(UIImage *)image
                  forKey:(NSString *)cacheKey
 {
   if (!image) {
     return;
   }
-  CGFloat bytes = image.size.width * image.size.height * 1.0f * 4;
+  CGFloat bytes = image.size.width * image.size.height * image.scale * image.scale * 4;
   if (bytes <= RCTMaxCachableDecodedImageSizeInBytes) {
     [self->_decodedImageCache setObject:image
                                  forKey:cacheKey
@@ -66,7 +75,7 @@ static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size, CGFloat sc
   }
 }
 
-- (NSImage *)imageForUrl:(NSString *)url
+- (UIImage *)imageForUrl:(NSString *)url
                     size:(CGSize)size
                    scale:(CGFloat)scale
               resizeMode:(RCTResizeMode)resizeMode
@@ -76,7 +85,7 @@ static NSString *RCTCacheKeyForImage(NSString *imageTag, CGSize size, CGFloat sc
   return [_decodedImageCache objectForKey:cacheKey];
 }
 
-- (void)addImageToCache:(NSImage *)image
+- (void)addImageToCache:(UIImage *)image
                     URL:(NSString *)url
                    size:(CGSize)size
                   scale:(CGFloat)scale

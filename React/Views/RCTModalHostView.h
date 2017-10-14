@@ -7,7 +7,7 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTInvalidating.h>
 #import <React/RCTModalHostViewManager.h>
@@ -18,22 +18,24 @@
 
 @protocol RCTModalHostViewInteractor;
 
-@interface RCTModalHostView : NSView <RCTInvalidating, NSWindowDelegate>
+@interface RCTModalHostView : UIView <RCTInvalidating>
 
 @property (nonatomic, copy) NSString *animationType;
-@property (nonatomic, copy) NSString *presentationType;
-@property (nonatomic, copy) NSView *containerView;
-@property (nonatomic, copy) NSNumber *width;
-@property (nonatomic, copy) NSNumber *height;
+@property (nonatomic, assign) UIModalPresentationStyle presentationStyle;
 @property (nonatomic, assign, getter=isTransparent) BOOL transparent;
 
 @property (nonatomic, copy) RCTDirectEventBlock onShow;
-@property (nonatomic, copy) RCTDirectEventBlock onRequestClose;
+
+@property (nonatomic, copy) NSNumber *identifier;
 
 @property (nonatomic, weak) id<RCTModalHostViewInteractor> delegate;
 
 @property (nonatomic, copy) NSArray<NSString *> *supportedOrientations;
 @property (nonatomic, copy) RCTDirectEventBlock onOrientationChange;
+
+#if TARGET_OS_TV
+@property (nonatomic, copy) RCTDirectEventBlock onRequestClose;
+#endif
 
 - (instancetype)initWithBridge:(RCTBridge *)bridge NS_DESIGNATED_INITIALIZER;
 

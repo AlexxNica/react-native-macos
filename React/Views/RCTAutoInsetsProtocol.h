@@ -7,14 +7,14 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 /**
  * Defines a View that wants to support auto insets adjustment
  */
 @protocol RCTAutoInsetsProtocol
 
-@property (nonatomic, assign, readwrite) NSEdgeInsets contentInset;
+@property (nonatomic, assign, readwrite) UIEdgeInsets contentInset;
 @property (nonatomic, assign, readwrite) BOOL automaticallyAdjustContentInsets;
 
 /**

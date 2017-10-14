@@ -9,7 +9,7 @@
 
 #import "RCTSnapshotManager.h"
 
-@interface RCTSnapshotView : NSView
+@interface RCTSnapshotView : UIView
 
 @property (nonatomic, copy) RCTDirectEventBlock onSnapshotReady;
 @property (nonatomic, copy) NSString *testIdentifier;
@@ -37,7 +37,7 @@
 
 RCT_EXPORT_MODULE()
 
-- (NSView *)view
+- (UIView *)view
 {
   return [RCTSnapshotView new];
 }

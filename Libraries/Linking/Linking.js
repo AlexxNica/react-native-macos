@@ -66,12 +66,27 @@ const LinkingManager = Platform.OS === 'android' ?
  *   android:launchMode="singleTask">
  * ```
  *
- * NOTE: On iOS you'll need to link `RCTLinking` to your project by following
+ * NOTE: On iOS, you'll need to link `RCTLinking` to your project by following
  * the steps described [here](docs/linking-libraries-ios.html#manual-linking).
- * In case you also want to listen to incoming app links during your app's
- * execution you'll need to add the following lines to your `*AppDelegate.m`:
+ * If you also want to listen to incoming app links during your app's
+ * execution, you'll need to add the following lines to your `*AppDelegate.m`:
  *
  * ```
+ * // iOS 9.x or newer
+ * #import <React/RCTLinkingManager.h>
+ *
+ * - (BOOL)application:(UIApplication *)application
+ *    openURL:(NSURL *)url
+ *    options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options
+ * {
+ *   return [RCTLinkingManager application:application openURL:url options:options];
+ * }
+ * ```
+ *
+ * If you're targeting iOS 8.x or older, you can use the following code instead:
+ *
+ * ```
+ * // iOS 8.x or older
  * #import <React/RCTLinkingManager.h>
  *
  * - (BOOL)application:(UIApplication *)application openURL:(NSURL *)url
@@ -80,8 +95,13 @@ const LinkingManager = Platform.OS === 'android' ?
  *   return [RCTLinkingManager application:application openURL:url
  *                       sourceApplication:sourceApplication annotation:annotation];
  * }
+ * ```
  *
- * // Only if your app is using [Universal Links](https://developer.apple.com/library/prerelease/ios/documentation/General/Conceptual/AppSearch/UniversalLinks.html).
+ *
+ * // If your app is using [Universal Links](https://developer.apple.com/library/prerelease/ios/documentation/General/Conceptual/AppSearch/UniversalLinks.html),
+ * you'll need to add the following code as well:
+ *
+ * ```
  * - (BOOL)application:(UIApplication *)application continueUserActivity:(NSUserActivity *)userActivity
  *  restorationHandler:(void (^)(NSArray * _Nullable))restorationHandler
  * {
@@ -89,7 +109,6 @@ const LinkingManager = Platform.OS === 'android' ?
  *                   continueUserActivity:userActivity
  *                     restorationHandler:restorationHandler];
  * }
- *
  * ```
  *
  * And then on your React component you'll be able to listen to the events on
@@ -163,7 +182,7 @@ class Linking extends NativeEventEmitter {
    * NOTE: For web URLs, the protocol ("http://", "https://") must be set accordingly!
    */
   openURL(url: string): Promise<any> {
-    Linking._validateURL(url);
+    this._validateURL(url);
     return LinkingManager.openURL(url);
   }
 
@@ -178,7 +197,7 @@ class Linking extends NativeEventEmitter {
    * @param URL the URL to open
    */
   canOpenURL(url: string): Promise<boolean> {
-    Linking._validateURL(url);
+    this._validateURL(url);
     return LinkingManager.canOpenURL(url);
   }
 
@@ -192,11 +211,7 @@ class Linking extends NativeEventEmitter {
     return LinkingManager.getInitialURL();
   }
 
-  static getArgv() {
-    return LinkingManager.argv;
-  }
-
-  static _validateURL(url: string) {
+  _validateURL(url: string) {
     invariant(
       typeof url === 'string',
       'Invalid URL: should be a string. Was: ' + url

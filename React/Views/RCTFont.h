@@ -18,7 +18,7 @@
  * If parameters are not specified, they'll be kept as-is.
  * If font is nil, the default system font of size 14 will be used.
  */
-+ (NSFont *)updateFont:(NSFont *)font
++ (UIFont *)updateFont:(UIFont *)font
             withFamily:(NSString *)family
                   size:(NSNumber *)size
                 weight:(NSString *)weight
@@ -26,15 +26,15 @@
                variant:(NSArray<NSString *> *)variant
        scaleMultiplier:(CGFloat)scaleMultiplier;
 
-+ (NSFont *)updateFont:(NSFont *)font withFamily:(NSString *)family;
-+ (NSFont *)updateFont:(NSFont *)font withSize:(NSNumber *)size;
-+ (NSFont *)updateFont:(NSFont *)font withWeight:(NSString *)weight;
-+ (NSFont *)updateFont:(NSFont *)font withStyle:(NSString *)style;
++ (UIFont *)updateFont:(UIFont *)font withFamily:(NSString *)family;
++ (UIFont *)updateFont:(UIFont *)font withSize:(NSNumber *)size;
++ (UIFont *)updateFont:(UIFont *)font withWeight:(NSString *)weight;
++ (UIFont *)updateFont:(UIFont *)font withStyle:(NSString *)style;
 
 @end
 
 @interface RCTConvert (RCTFont)
 
-+ (NSFont *)NSFont:(id)json;
++ (UIFont *)UIFont:(id)json;
 
 @end

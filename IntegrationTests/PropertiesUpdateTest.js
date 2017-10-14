@@ -9,7 +9,7 @@
  */
 'use strict';
 
-var React = require('React');
+var React = require('react');
 var ReactNative = require('react-native');
 var {
   View,

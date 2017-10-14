@@ -7,7 +7,7 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTBridge.h>
 
@@ -39,7 +39,7 @@ extern NSString *const RCTContentDidAppearNotification;
  * like any ordinary UIView. You can have multiple RCTRootViews on screen at
  * once, all controlled by the same JavaScript application.
  */
-@interface RCTRootView : NSVisualEffectView
+@interface RCTRootView : UIView
 
 /**
  * - Designated initializer -
@@ -84,9 +84,7 @@ extern NSString *const RCTContentDidAppearNotification;
 @property (nonatomic, copy, readwrite) NSDictionary *appProperties;
 
 /**
- * The class of the RCTJavaScriptExecutor to use with this view.
- * If not specified, it will default to using RCTJSCExecutor.
- * Changes will take effect next time the bundle is reloaded.
+ * The size flexibility mode of the root view.
  */
 @property (nonatomic, assign) RCTRootViewSizeFlexibility sizeFlexibility;
 
@@ -98,24 +96,24 @@ extern NSString *const RCTContentDidAppearNotification;
 /**
  * The backing view controller of the root view.
  */
-@property (nonatomic, strong) NSViewController *reactViewController;
+@property (nonatomic, weak) UIViewController *reactViewController;
 
 /**
  * The React-managed contents view of the root view.
  */
-@property (nonatomic, strong, readonly) NSView *contentView;
+@property (nonatomic, strong, readonly) UIView *contentView;
 
 /**
  * A view to display while the JavaScript is loading, so users aren't presented
  * with a blank screen. By default this is nil, but you can override it with
  * (for example) a UIActivityIndicatorView or a placeholder image.
  */
-@property (nonatomic, strong) NSView *loadingView;
+@property (nonatomic, strong) UIView *loadingView;
 
 /**
  * Calling this will result in emitting a "touches cancelled" event to js,
- * which effectively cancels all js "gesture recognizers" such as as touchable
- * (unless they explicitely ignore cancellation events, but noone should do that).
+ * which effectively cancels all js "gesture recognizers" such as touchable components
+ * (unless they explicitely ignore cancellation events, but no one should do that).
  *
  * This API is exposed for integration purposes where you embed RN rootView
  * in a native view with a native gesture recognizer,

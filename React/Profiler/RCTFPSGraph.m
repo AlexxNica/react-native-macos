@@ -8,7 +8,7 @@
  */
 
 #import "RCTFPSGraph.h"
-#import "QuartzCore/CAShapeLayer.h"
+
 #import "RCTAssert.h"
 
 #if RCT_DEV
@@ -16,17 +16,17 @@
 @interface RCTFPSGraph()
 
 @property (nonatomic, strong, readonly) CAShapeLayer *graph;
-@property (nonatomic, strong, readonly) NSTextField *label;
+@property (nonatomic, strong, readonly) UILabel *label;
 
 @end
 
 @implementation RCTFPSGraph
 {
   CAShapeLayer *_graph;
-  NSTextField *_label;
+  UILabel *_label;
 
   CGFloat *_frames;
-  NSColor *_color;
+  UIColor *_color;
 
   NSTimeInterval _prevTime;
   NSUInteger _frameCount;
@@ -37,7 +37,7 @@
   NSUInteger _height;
 }
 
-- (instancetype)initWithFrame:(CGRect)frame color:(NSColor *)color
+- (instancetype)initWithFrame:(CGRect)frame color:(UIColor *)color
 {
   if ((self = [super initWithFrame:frame])) {
     _frameCount = -1;
@@ -49,7 +49,6 @@
     _frames = calloc(sizeof(CGFloat), _length);
     _color = color;
 
-    [self setWantsLayer:YES];
     [self.layer addSublayer:self.graph];
     [self addSubview:self.label];
   }
@@ -76,16 +75,12 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   return _graph;
 }
 
-- (NSTextField *)label
+- (UILabel *)label
 {
   if (!_label) {
-    _label = [[NSTextField alloc] initWithFrame:self.bounds];
-    _label.font = [NSFont boldSystemFontOfSize:13];
-    _label.alignment = NSTextAlignmentCenter;
-    _label.bezeled = NO;
-    _label.drawsBackground = NO;
-    _label.editable = NO;
-
+    _label = [[UILabel alloc] initWithFrame:self.bounds];
+    _label.font = [UIFont boldSystemFontOfSize:13];
+    _label.textAlignment = NSTextAlignmentCenter;
   }
 
   return _label;
@@ -102,9 +97,8 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     _maxFPS = MAX(_maxFPS, _FPS);
 
     dispatch_async(dispatch_get_main_queue(), ^{
-      self->_label.stringValue = [NSString stringWithFormat:@"%lu", (unsigned long)self->_FPS];
+      self->_label.text = [NSString stringWithFormat:@"%lu", (unsigned long)self->_FPS];
     });
-
 
     CGFloat scale = 60.0 / _height;
     for (NSUInteger i = 0; i < _length - 1; i++) {
@@ -113,11 +107,11 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     _frames[_length - 1] = _FPS / scale;
 
     CGMutablePathRef path = CGPathCreateMutable();
-    CGPathMoveToPoint(path, NULL, 0, 0);
+    CGPathMoveToPoint(path, NULL, 0, _height);
     for (NSUInteger i = 0; i < _length; i++) {
-      CGPathAddLineToPoint(path, NULL, i, _frames[i]);
+      CGPathAddLineToPoint(path, NULL, i, _height - _frames[i]);
     }
-    CGPathAddLineToPoint(path, NULL, _length - 1, 0);
+    CGPathAddLineToPoint(path, NULL, _length - 1, _height);
 
     _graph.path = path;
     CGPathRelease(path);

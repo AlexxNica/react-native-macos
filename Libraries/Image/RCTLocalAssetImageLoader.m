@@ -9,7 +9,7 @@
 
 #import "RCTLocalAssetImageLoader.h"
 
-#import <libkern/OSAtomic.h>
+#import <stdatomic.h>
 
 #import <React/RCTUtils.h>
 
@@ -44,13 +44,13 @@ RCT_EXPORT_MODULE()
                                  partialLoadHandler:(RCTImageLoaderPartialLoadBlock)partialLoadHandler
                                   completionHandler:(RCTImageLoaderCompletionBlock)completionHandler
 {
-  __block volatile uint32_t cancelled = 0;
+  __block atomic_bool cancelled = ATOMIC_VAR_INIT(NO);
   RCTExecuteOnMainQueue(^{
-    if (cancelled) {
+    if (atomic_load(&cancelled)) {
       return;
     }
 
-    NSImage *image = RCTImageFromLocalAssetURL(imageURL);
+    UIImage *image = RCTImageFromLocalAssetURL(imageURL);
     if (image) {
       if (progressHandler) {
         progressHandler(1, 1);
@@ -64,7 +64,7 @@ RCT_EXPORT_MODULE()
   });
 
   return ^{
-    OSAtomicOr32Barrier(1, &cancelled);
+    atomic_store(&cancelled, YES);
   };
 }
 

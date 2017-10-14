@@ -11,7 +11,7 @@
  */
 'use strict';
 
-var React = require('React');
+var React = require('react');
 var ReactNative = require('react-native');
 var {
   NativeAppEventEmitter,
@@ -32,7 +32,7 @@ type State = {
   elapsed?: string,
 };
 
-class AppEventsTest extends React.Component {
+class AppEventsTest extends React.Component<{}, State> {
   state: State = {sent: 'none', received: 'none'};
 
   componentDidMount() {

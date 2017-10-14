@@ -8,7 +8,7 @@
  */
 
 #import <QuartzCore/QuartzCore.h>
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTAnimationType.h>
 #import <React/RCTBorderStyle.h>
@@ -62,19 +62,32 @@ typedef NSURL RCTFileURL;
 + (NSTextAlignment)NSTextAlignment:(id)json;
 + (NSUnderlineStyle)NSUnderlineStyle:(id)json;
 + (NSWritingDirection)NSWritingDirection:(id)json;
++ (UITextAutocapitalizationType)UITextAutocapitalizationType:(id)json;
++ (UITextFieldViewMode)UITextFieldViewMode:(id)json;
++ (UIKeyboardType)UIKeyboardType:(id)json;
++ (UIKeyboardAppearance)UIKeyboardAppearance:(id)json;
++ (UIReturnKeyType)UIReturnKeyType:(id)json;
+#if !TARGET_OS_TV
++ (UIDataDetectorTypes)UIDataDetectorTypes:(id)json;
+#endif
+
++ (UIViewContentMode)UIViewContentMode:(id)json;
+#if !TARGET_OS_TV
++ (UIBarStyle)UIBarStyle:(id)json;
+#endif
 
 + (CGFloat)CGFloat:(id)json;
 + (CGPoint)CGPoint:(id)json;
 + (CGSize)CGSize:(id)json;
 + (CGRect)CGRect:(id)json;
-+ (NSEdgeInsets)NSEdgeInsets:(id)json;
++ (UIEdgeInsets)UIEdgeInsets:(id)json;
 
 + (CGLineCap)CGLineCap:(id)json;
 + (CGLineJoin)CGLineJoin:(id)json;
 
 + (CGAffineTransform)CGAffineTransform:(id)json;
-//
-+ (NSColor *)NSColor:(id)json;
+
++ (UIColor *)UIColor:(id)json;
 + (CGColorRef)CGColor:(id)json CF_RETURNS_NOT_RETAINED;
 
 + (YGValue)YGValue:(id)json;
@@ -86,7 +99,7 @@ typedef NSURL RCTFileURL;
 + (NSArray<NSURL *> *)NSURLArray:(id)json;
 + (NSArray<RCTFileURL *> *)RCTFileURLArray:(id)json;
 + (NSArray<NSNumber *> *)NSNumberArray:(id)json;
-+ (NSArray<NSColor *> *)NSColorArray:(id)json;
++ (NSArray<UIColor *> *)UIColorArray:(id)json;
 
 typedef NSArray CGColorArray;
 + (CGColorArray *)CGColorArray:(id)json;
@@ -127,14 +140,14 @@ typedef NSArray NSDictionaryArray __deprecated_msg("Use NSArray<NSDictionary *>"
 typedef NSArray NSURLArray __deprecated_msg("Use NSArray<NSURL *>");
 typedef NSArray RCTFileURLArray __deprecated_msg("Use NSArray<RCTFileURL *>");
 typedef NSArray NSNumberArray __deprecated_msg("Use NSArray<NSNumber *>");
-typedef NSArray NSColorArray __deprecated_msg("Use NSArray<NSColor *>");
+typedef NSArray UIColorArray __deprecated_msg("Use NSArray<UIColor *>");
 
 /**
  * Synchronous image loading is generally a bad idea for performance reasons.
  * If you need to pass image references, try to use `RCTImageSource` and then
  * `RCTImageLoader` instead of converting directly to a UIImage.
  */
-+ (NSImage *)NSImage:(id)json;
++ (UIImage *)UIImage:(id)json;
 + (CGImageRef)CGImage:(id)json CF_RETURNS_NOT_RETAINED;
 
 @end
@@ -195,6 +208,17 @@ RCT_CUSTOM_CONVERTER(type, name, [json getter])
 RCT_CUSTOM_CONVERTER(type, type, [RCT_DEBUG ? [self NSNumber:json] : json getter])
 
 /**
+ * When using RCT_ENUM_CONVERTER in ObjC, the compiler is OK with us returning
+ * the underlying NSInteger/NSUInteger. In ObjC++, this is a type mismatch and
+ * we need to explicitly cast the return value to expected enum return type.
+ */
+#ifdef __cplusplus
+#define _RCT_CAST(type, expr) static_cast<type>(expr)
+#else
+#define _RCT_CAST(type, expr) expr
+#endif
+
+/**
  * This macro is used for creating converters for enum types.
  */
 #define RCT_ENUM_CONVERTER(type, values, default, getter) \
@@ -205,7 +229,7 @@ RCT_CUSTOM_CONVERTER(type, type, [RCT_DEBUG ? [self NSNumber:json] : json getter
   dispatch_once(&onceToken, ^{                            \
     mapping = values;                                     \
   });                                                     \
-  return [RCTConvertEnumValue(#type, mapping, @(default), json) getter]; \
+  return _RCT_CAST(type, [RCTConvertEnumValue(#type, mapping, @(default), json) getter]); \
 }
 
 /**
@@ -220,7 +244,7 @@ RCT_CUSTOM_CONVERTER(type, type, [RCT_DEBUG ? [self NSNumber:json] : json getter
   dispatch_once(&onceToken, ^{                            \
     mapping = values;                                     \
   });                                                     \
-  return [RCTConvertMultiEnumValue(#type, mapping, @(default), json) getter]; \
+  return _RCT_CAST(type, [RCTConvertMultiEnumValue(#type, mapping, @(default), json) getter]); \
 }
 
 /**

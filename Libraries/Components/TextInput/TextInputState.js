@@ -40,7 +40,7 @@ var TextInputState = {
   focusTextInput: function(textFieldID: ?number) {
     if (this._currentlyFocusedID !== textFieldID && textFieldID !== null) {
       this._currentlyFocusedID = textFieldID;
-      if (Platform.OS === 'ios' || Platform.OS === 'macos') {
+      if (Platform.OS === 'ios') {
         UIManager.focus(textFieldID);
       } else if (Platform.OS === 'android') {
         UIManager.dispatchViewManagerCommand(
@@ -53,7 +53,7 @@ var TextInputState = {
   },
 
   /**
-   * @param {number} textFieldID id of the text field to focus
+   * @param {number} textFieldID id of the text field to unfocus
    * Unfocuses the specified text field
    * noop if it wasn't focused
    */

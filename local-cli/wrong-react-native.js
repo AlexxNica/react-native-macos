@@ -13,11 +13,13 @@ var script = process.argv[1];
 var installedGlobally = script.indexOf('node_modules/.bin/react-native') === -1;
 
 if (installedGlobally) {
+  const chalk = require('chalk');
+
   console.error([
-    '\033[31mLooks like you installed react-native-macos globally, maybe you meant react-native-macos-cli?',
-    'To fix the issue, run:\033[0m',
-    'npm uninstall -g react-native-macos',
-    'npm install -g react-native-macos-cli'
+    chalk.red('Looks like you installed react-native globally, maybe you meant react-native-cli?'),
+    chalk.red('To fix the issue, run:'),
+    'npm uninstall -g react-native',
+    'npm install -g react-native-cli'
   ].join('\n'));
   process.exit(1);
 } else {

@@ -17,6 +17,7 @@
 #import "RCTSRWebSocket.h"
 
 #import <Availability.h>
+#import <Endian.h>
 
 #import <Security/SecRandom.h>
 
@@ -267,11 +268,10 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
     if ([components.scheme isEqualToString:@"wss"]) {
       components.scheme = @"https";
     }
+
     // Load and set the cookie header.
-    if ([NSHTTPCookieStorage sharedHTTPCookieStorage].cookies.count > 0 && components) {
-      NSArray<NSHTTPCookie *> *cookies = [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookiesForURL:components.URL];
-      [request setAllHTTPHeaderFields:[NSHTTPCookie requestHeaderFieldsWithCookies:cookies]];
-    }
+    NSArray<NSHTTPCookie *> *cookies = [[NSHTTPCookieStorage sharedHTTPCookieStorage] cookiesForURL:components.URL];
+    [request setAllHTTPHeaderFields:[NSHTTPCookie requestHeaderFieldsWithCookies:cookies]];
   }
   return [self initWithURLRequest:request protocols:protocols];
 }

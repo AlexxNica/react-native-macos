@@ -16,10 +16,7 @@
 #import "RCTConvert.h"
 #import "RCTShadowView.h"
 #import "RCTUtils.h"
-#import "RCTViewManager.h"
-#import "UIImageUtils.h"
-#import "NSView+React.h"
-
+#import "UIView+React.h"
 
 typedef void (^RCTPropBlock)(id<RCTComponent> view, id json);
 typedef NSMutableDictionary<NSString *, RCTPropBlock> RCTPropBlockDictionary;
@@ -44,23 +41,7 @@ typedef NSMutableDictionary<NSString *, RCTPropBlock> RCTPropBlockDictionary;
     _viewPropBlocks = [NSMutableDictionary new];
     _shadowPropBlocks = [NSMutableDictionary new];
 
-    // Hackety hack, this partially re-implements RCTBridgeModuleNameForClass
-    // We want to get rid of RCT and RK prefixes, but a lot of JS code still references
-    // view names by prefix. So, while RCTBridgeModuleNameForClass now drops these
-    // prefixes by default, we'll still keep them around here.
-    NSString *name = [managerClass moduleName];
-    if (name.length == 0) {
-      name = NSStringFromClass(managerClass);
-    }
-    if ([name hasPrefix:@"RK"]) {
-      name = [name stringByReplacingCharactersInRange:(NSRange){0, @"RK".length} withString:@"RCT"];
-    }
-    if ([name hasSuffix:@"Manager"]) {
-      name = [name substringToIndex:name.length - @"Manager".length];
-    }
-
-    RCTAssert(name.length, @"Invalid moduleName '%@'", name);
-    _name = name;
+    _name = moduleNameForClass(managerClass);
 
     _implementsUIBlockToAmendWithShadowViewRegistry = NO;
     Class cls = _managerClass;
@@ -83,12 +64,17 @@ typedef NSMutableDictionary<NSString *, RCTPropBlock> RCTPropBlockDictionary;
 
 RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
-- (NSView *)createViewWithTag:(NSNumber *)tag
+- (UIView *)createViewWithTag:(NSNumber *)tag
 {
   RCTAssertMainQueue();
 
-  NSView *view = [self.manager view];
+  UIView *view = [self.manager view];
   view.reactTag = tag;
+#if !TARGET_OS_TV
+  view.multipleTouchEnabled = YES;
+#endif
+  view.userInteractionEnabled = YES; // required for touch handling
+  view.layer.allowsGroupOpacity = YES; // required for touch handling
   return view;
 }
 
@@ -355,10 +341,6 @@ static RCTPropBlock createNSInvocationSetter(NSMethodSignature *typeSignature, S
     return;
   }
 
-  if (!_defaultView) {
-    _defaultView = [self createViewWithTag:nil];
-  }
-
   [props enumerateKeysAndObjectsUsingBlock:^(NSString *key, id json, __unused BOOL *stop) {
     [self propBlockForKey:key isShadowView:NO](view, json);
   }];
@@ -441,11 +423,14 @@ static RCTPropBlock createNSInvocationSetter(NSMethodSignature *typeSignature, S
     }
   }
 #endif
-
+  
+  Class superClass = [_managerClass superclass];
+  
   return @{
     @"propTypes": propTypes,
     @"directEvents": directEvents,
     @"bubblingEvents": bubblingEvents,
+    @"baseModuleName": superClass == [NSObject class] ? (id)kCFNull : moduleNameForClass(superClass),
   };
 }
 
@@ -455,6 +440,28 @@ static RCTPropBlock createNSInvocationSetter(NSMethodSignature *typeSignature, S
     return [[self manager] uiBlockToAmendWithShadowViewRegistry:registry];
   }
   return nil;
+}
+
+static NSString *moduleNameForClass(Class managerClass)
+{
+  // Hackety hack, this partially re-implements RCTBridgeModuleNameForClass
+  // We want to get rid of RCT and RK prefixes, but a lot of JS code still references
+  // view names by prefix. So, while RCTBridgeModuleNameForClass now drops these
+  // prefixes by default, we'll still keep them around here.
+  NSString *name = [managerClass moduleName];
+  if (name.length == 0) {
+    name = NSStringFromClass(managerClass);
+  }
+  if ([name hasPrefix:@"RK"]) {
+    name = [name stringByReplacingCharactersInRange:(NSRange){0, @"RK".length} withString:@"RCT"];
+  }
+  if ([name hasSuffix:@"Manager"]) {
+    name = [name substringToIndex:name.length - @"Manager".length];
+  }
+  
+  RCTAssert(name.length, @"Invalid moduleName '%@'", name);
+  
+  return name;
 }
 
 @end

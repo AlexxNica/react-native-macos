@@ -9,24 +9,24 @@
 
 #import "RCTDevMenu.h"
 
+#import "RCTBridge+Private.h"
 #import "RCTDevSettings.h"
 #import "RCTKeyCommands.h"
 #import "RCTLog.h"
 #import "RCTUtils.h"
 
-#define RCT_DEVMENU_TITLE @"React Native"
-
 #if RCT_DEV
 
-static NSString *const RCTShowDevMenuNotification = @"RCTShowDevMenuNotification";
+NSString *const RCTShowDevMenuNotification = @"RCTShowDevMenuNotification";
 
-@interface RCTDevMenuItem ()
+@implementation UIWindow (RCTDevMenu)
 
-@property (nonatomic, copy, readonly) NSString *key;
-@property (nonatomic, copy) id value;
-@property (nonatomic, copy) NSString *hotKey;
-
-- (void)callHandler;
+- (void)RCT_motionEnded:(__unused UIEventSubtype)motion withEvent:(UIEvent *)event
+{
+  if (event.subtype == UIEventSubtypeMotionShake) {
+    [[NSNotificationCenter defaultCenter] postNotificationName:RCTShowDevMenuNotification object:nil];
+  }
+}
 
 @end
 
@@ -37,45 +37,26 @@ static NSString *const RCTShowDevMenuNotification = @"RCTShowDevMenuNotification
 }
 
 - (instancetype)initWithTitleBlock:(RCTDevMenuItemTitleBlock)titleBlock
-                           hotkey:(NSString *)hotkey
                            handler:(dispatch_block_t)handler
 {
   if ((self = [super init])) {
     _titleBlock = [titleBlock copy];
     _handler = [handler copy];
-    [self setAction:@selector(callHandler)];
-    [self setTarget:self];
-    [self setKeyEquivalent:hotkey];
   }
   return self;
 }
 
 RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
-+ (instancetype)buttonItemWithTitleBlock:(NSString *(^)(void))titleBlock
-                                  hotkey:(NSString *)hotkey
-                                 handler:(dispatch_block_t)handler
++ (instancetype)buttonItemWithTitleBlock:(NSString *(^)(void))titleBlock handler:(dispatch_block_t)handler
 {
-  return [[self alloc] initWithTitleBlock:titleBlock hotkey:hotkey handler:handler];
-}
-
-+ (instancetype)buttonItemWithTitleBlock:(NSString *(^)(void))titleBlock
-                                 handler:(dispatch_block_t)handler
-{
-  return [[self alloc] initWithTitleBlock:titleBlock hotkey:@"" handler:handler];
-}
-
-+ (instancetype)buttonItemWithTitle:(NSString *)title
-                             hotkey:(NSString *)hotkey
-                            handler:(dispatch_block_t)handler
-{
-  return [[self alloc] initWithTitleBlock:^NSString *{ return title; } hotkey:hotkey handler:handler];
+  return [[self alloc] initWithTitleBlock:titleBlock handler:handler];
 }
 
 + (instancetype)buttonItemWithTitle:(NSString *)title
                             handler:(dispatch_block_t)handler
 {
-  return [[self alloc] initWithTitleBlock:^NSString *{ return title; } hotkey:@"" handler:handler];
+  return [[self alloc] initWithTitleBlock:^NSString *{ return title; } handler:handler];
 }
 
 - (void)callHandler
@@ -95,14 +76,16 @@ RCT_NOT_IMPLEMENTED(- (instancetype)init)
 
 @end
 
+typedef void(^RCTDevMenuAlertActionHandler)(UIAlertAction *action);
+
 @interface RCTDevMenu () <RCTBridgeModule, RCTInvalidating>
 
 @end
 
 @implementation RCTDevMenu
 {
+  UIAlertController *_actionSheet;
   NSMutableArray<RCTDevMenuItem *> *_extraMenuItems;
-  BOOL isShown;
 }
 
 @synthesize bridge = _bridge;
@@ -114,43 +97,47 @@ RCT_EXPORT_MODULE()
   // We're swizzling here because it's poor form to override methods in a category,
   // however UIWindow doesn't actually implement motionEnded:withEvent:, so there's
   // no need to call the original implementation.
-  // RCTSwapInstanceMethods([UIWindow class], @selector(motionEnded:withEvent:), @selector(RCT_motionEnded:withEvent:));
+  RCTSwapInstanceMethods([UIWindow class], @selector(motionEnded:withEvent:), @selector(RCT_motionEnded:withEvent:));
+}
+
++ (BOOL)requiresMainQueueSetup
+{
+  return YES;
 }
 
 - (instancetype)init
 {
   if ((self = [super init])) {
-    isShown = NO;
     [[NSNotificationCenter defaultCenter] addObserver:self
                                              selector:@selector(showOnShake)
                                                  name:RCTShowDevMenuNotification
                                                object:nil];
     _extraMenuItems = [NSMutableArray new];
 
-#if DEBUG
+#if TARGET_OS_SIMULATOR
     RCTKeyCommands *commands = [RCTKeyCommands sharedInstance];
     __weak __typeof(self) weakSelf = self;
+
     // Toggle debug menu
     [commands registerKeyCommandWithInput:@"d"
-                            modifierFlags:NSEventModifierFlagCommand
-                                   action:^(__unused NSEvent *command) {
+                            modifierFlags:UIKeyModifierCommand
+                                   action:^(__unused UIKeyCommand *command) {
                                      [weakSelf toggle];
                                    }];
-    
+
     // Toggle element inspector
     [commands registerKeyCommandWithInput:@"i"
-                            modifierFlags:NSEventModifierFlagCommand
-                                   action:^(__unused NSEvent *command) {
+                            modifierFlags:UIKeyModifierCommand
+                                   action:^(__unused UIKeyCommand *command) {
                                      [weakSelf.bridge.devSettings toggleElementInspector];
                                    }];
-    
+
     // Reload in normal mode
     [commands registerKeyCommandWithInput:@"n"
-                            modifierFlags:NSEventModifierFlagCommand
-                                   action:^(__unused NSEvent *command) {
+                            modifierFlags:UIKeyModifierCommand
+                                   action:^(__unused UIKeyCommand *command) {
                                      [weakSelf.bridge.devSettings setIsDebuggingRemotely:NO];
                                    }];
-    
 #endif
   }
   return self;
@@ -164,6 +151,7 @@ RCT_EXPORT_MODULE()
 - (void)invalidate
 {
   _presentedItems = nil;
+  [_actionSheet dismissViewControllerAnimated:YES completion:^(void){}];
   [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
@@ -174,15 +162,19 @@ RCT_EXPORT_MODULE()
   }
 }
 
-- (BOOL)isActionSheetShown
-{
-  return isShown;
-}
-
 - (void)toggle
 {
-  // TODO: add invalidating/hiding
-  [self show];
+  if (_actionSheet) {
+    [_actionSheet dismissViewControllerAnimated:YES completion:^(void){}];
+    _actionSheet = nil;
+  } else {
+    [self show];
+  }
+}
+
+- (BOOL)isActionSheetShown
+{
+  return _actionSheet != nil;
 }
 
 - (void)addItem:(NSString *)title handler:(void(^)(void))handler
@@ -203,27 +195,23 @@ RCT_EXPORT_MODULE()
   __weak RCTBridge *bridge = _bridge;
   __weak RCTDevSettings *devSettings = _bridge.devSettings;
 
-  [items addObject:[RCTDevMenuItem buttonItemWithTitle:@"Reload"  hotkey:@"r" handler:^{
+  [items addObject:[RCTDevMenuItem buttonItemWithTitle:@"Reload" handler:^{
     [bridge reload];
   }]];
 
   if (!devSettings.isRemoteDebuggingAvailable) {
     [items addObject:[RCTDevMenuItem buttonItemWithTitle:@"Remote JS Debugger Unavailable" handler:^{
-      NSAlert *alert = RCTAlertView(@"Remote JS Debugger Unavailable",
-                                    @"You need to include the RCTWebSocket library to enable remote JS debugging",
-                                    nil,
-                                    @"OK",
-                                    nil);
-      [alert runModal];
+      UIAlertController *alertController = [UIAlertController
+        alertControllerWithTitle:@"Remote JS Debugger Unavailable"
+        message:@"You need to include the RCTWebSocket library to enable remote JS debugging"
+        preferredStyle:UIAlertControllerStyleAlert];
+      [RCTPresentedViewController() presentViewController:alertController animated:YES completion:NULL];
     }]];
   } else {
     [items addObject:[RCTDevMenuItem buttonItemWithTitleBlock:^NSString *{
       return devSettings.isDebuggingRemotely ? @"Stop Remote JS Debugging" : @"Debug JS Remotely";
-    }
-                                                       hotkey:@"R"
-                                                      handler:^{
+    } handler:^{
       devSettings.isDebuggingRemotely = !devSettings.isDebuggingRemotely;
-      [self show];
     }]];
   }
 
@@ -232,13 +220,11 @@ RCT_EXPORT_MODULE()
       return devSettings.isLiveReloadEnabled ? @"Disable Live Reload" : @"Enable Live Reload";
     } handler:^{
       devSettings.isLiveReloadEnabled = !devSettings.isLiveReloadEnabled;
-      [self show];
     }]];
     [items addObject:[RCTDevMenuItem buttonItemWithTitleBlock:^NSString *{
       return devSettings.isProfilingEnabled ? @"Stop Systrace" : @"Start Systrace";
     } handler:^{
       devSettings.isProfilingEnabled = !devSettings.isProfilingEnabled;
-      [self show];
     }]];
   }
 
@@ -247,7 +233,6 @@ RCT_EXPORT_MODULE()
       return devSettings.isHotLoadingEnabled ? @"Disable Hot Reloading" : @"Enable Hot Reloading";
     } handler:^{
       devSettings.isHotLoadingEnabled = !devSettings.isHotLoadingEnabled;
-      [self show];
     }]];
   }
 
@@ -256,66 +241,61 @@ RCT_EXPORT_MODULE()
     // duplicated in RCTJSCExecutor
     [items addObject:[RCTDevMenuItem buttonItemWithTitle:@"Start / Stop JS Sampling Profiler" handler:^{
       [devSettings toggleJSCSamplingProfiler];
-      [self show];
     }]];
   }
 
   [items addObject:[RCTDevMenuItem buttonItemWithTitleBlock:^NSString *{
-    return (devSettings.isElementInspectorShown) ? @"Hide Inspector" : @"Show Inspector";
+    return @"Toggle Inspector";
   } handler:^{
     [devSettings toggleElementInspector];
-    [self show];
   }]];
 
   [items addObjectsFromArray:_extraMenuItems];
   return items;
 }
 
-// TODO: Use Unified Menu API, update settings, update menu titles
-- (NSMenu *)getDeveloperMenu
-{
-  if ([[NSApp mainMenu] indexOfItemWithTitle:RCT_DEVMENU_TITLE] > -1) {
-    return [[NSApp mainMenu] itemWithTitle:RCT_DEVMENU_TITLE].submenu;
-  } else {
-    NSMenuItem *developerItemContainer = [[NSMenuItem alloc] init];
-    NSMenu *developerMenu = [[NSMenu alloc] initWithTitle:RCT_DEVMENU_TITLE];
-    developerItemContainer.title = RCT_DEVMENU_TITLE;
-    [[NSApp mainMenu] addItem:developerItemContainer];
-    [[NSApp mainMenu] setSubmenu:developerMenu forItem:developerItemContainer];
-    return developerMenu;
-  }
-}
-
-
-
 RCT_EXPORT_METHOD(show)
 {
-  if (!_bridge || RCTRunningInAppExtension()) {
+  if (_actionSheet || !_bridge || RCTRunningInAppExtension()) {
     return;
   }
-  
-  isShown = YES;
-  
-  NSArray<RCTDevMenuItem *> *items = [self _menuItemsToPresent];
-  NSMenu *developerMenu = [self getDeveloperMenu];
-  [developerMenu removeAllItems];
-  for (RCTDevMenuItem *item in items) {
-    [developerMenu addItem:item];    
+
+  NSString *desc = _bridge.bridgeDescription;
+  if (desc.length == 0) {
+    desc = NSStringFromClass([_bridge class]);
   }
-  
+  NSString *title = [NSString stringWithFormat:@"React Native: Development (%@)", desc];
+  // On larger devices we don't have an anchor point for the action sheet
+  UIAlertControllerStyle style = [[UIDevice currentDevice] userInterfaceIdiom] == UIUserInterfaceIdiomPhone ? UIAlertControllerStyleActionSheet : UIAlertControllerStyleAlert;
+  _actionSheet = [UIAlertController alertControllerWithTitle:title
+                                                     message:@""
+                                              preferredStyle:style];
+
+  NSArray<RCTDevMenuItem *> *items = [self _menuItemsToPresent];
+  for (RCTDevMenuItem *item in items) {
+    [_actionSheet addAction:[UIAlertAction actionWithTitle:item.title
+                                                     style:UIAlertActionStyleDefault
+                                                   handler:[self alertActionHandlerForDevItem:item]]];
+  }
+
+  [_actionSheet addAction:[UIAlertAction actionWithTitle:@"Cancel"
+                                                   style:UIAlertActionStyleCancel
+                                                 handler:[self alertActionHandlerForDevItem:nil]]];
+
   _presentedItems = items;
+  [RCTPresentedViewController() presentViewController:_actionSheet animated:YES completion:nil];
 }
 
-//- (RCTDevMenuAlertActionHandler)alertActionHandlerForDevItem:(RCTDevMenuItem *__nullable)item
-//{
-//  return ^(__unused UIAlertAction *action) {
-//    if (item) {
-//      [item callHandler];
-//    }
-//
-//    self->_actionSheet = nil;
-//  };
-//}
+- (RCTDevMenuAlertActionHandler)alertActionHandlerForDevItem:(RCTDevMenuItem *__nullable)item
+{
+  return ^(__unused UIAlertAction *action) {
+    if (item) {
+      [item callHandler];
+    }
+
+    self->_actionSheet = nil;
+  };
+}
 
 #pragma mark - deprecated methods and properties
 

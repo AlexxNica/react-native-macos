@@ -13,11 +13,17 @@
 #import <React/RCTEventDispatcher.h>
 #import <React/RCTUtils.h>
 
-NSString *const RCTOpenURLNotification = @"RCTOpenURLNotification";
+static NSString *const kOpenURLNotification = @"RCTOpenURLNotification";
+
+static void postNotificationWithURL(NSURL *URL, id sender)
+{
+  NSDictionary<NSString *, id> *payload = @{@"url": URL.absoluteString};
+  [[NSNotificationCenter defaultCenter] postNotificationName:kOpenURLNotification
+                                                      object:sender
+                                                    userInfo:payload];
+}
 
 @implementation RCTLinkingManager
-
-@synthesize bridge = _bridge;
 
 RCT_EXPORT_MODULE()
 
@@ -28,11 +34,9 @@ RCT_EXPORT_MODULE()
 
 - (void)startObserving
 {
-  [[NSAppleEventManager sharedAppleEventManager] setEventHandler:self andSelector:@selector(getUrl:withReplyEvent:) forEventClass:kInternetEventClass andEventID:kAEGetURL];
-
   [[NSNotificationCenter defaultCenter] addObserver:self
                                            selector:@selector(handleOpenURLNotification:)
-                                               name:RCTOpenURLNotification
+                                               name:kOpenURLNotification
                                              object:nil];
 }
 
@@ -41,44 +45,35 @@ RCT_EXPORT_MODULE()
   [[NSNotificationCenter defaultCenter] removeObserver:self];
 }
 
-- (NSDictionary<NSString *, id> *)constantsToExport
-{
-  NSString *argv = _bridge.launchOptions[@"argv"];
-  return @{@"argv": RCTNullIfNil(argv)};
-}
-
 - (NSArray<NSString *> *)supportedEvents
 {
   return @[@"url"];
 }
 
-+ (BOOL)application:(NSApplication *)application
++ (BOOL)application:(UIApplication *)app
+            openURL:(NSURL *)URL
+            options:(NSDictionary<UIApplicationOpenURLOptionsKey,id> *)options
+{
+  postNotificationWithURL(URL, self);
+  return YES;
+}
+
++ (BOOL)application:(UIApplication *)application
             openURL:(NSURL *)URL
   sourceApplication:(NSString *)sourceApplication
          annotation:(id)annotation
 {
-  NSDictionary<NSString *, id> *payload = @{@"url": URL.absoluteString};
-  [[NSNotificationCenter defaultCenter] postNotificationName:RCTOpenURLNotification
-                                                      object:self
-                                                    userInfo:payload];
+  postNotificationWithURL(URL, self);
   return YES;
 }
 
-- (void)getUrl:(NSAppleEventDescriptor *)event withReplyEvent:(NSAppleEventDescriptor *)replyEvent
-{
-    [[NSApp mainWindow] makeKeyAndOrderFront:nil];
-    NSString* url = [[event paramDescriptorForKeyword:keyDirectObject] stringValue];
-    NSDictionary *payload = @{@"url": url};
-    [self sendEventWithName:@"url" body:payload];
-}
-
-+ (BOOL)application:(NSApplication *)application
++ (BOOL)application:(UIApplication *)application
 continueUserActivity:(NSUserActivity *)userActivity
   restorationHandler:(void (^)(NSArray *))restorationHandler
 {
   if ([userActivity.activityType isEqualToString:NSUserActivityTypeBrowsingWeb]) {
     NSDictionary *payload = @{@"url": userActivity.webpageURL.absoluteString};
-    [[NSNotificationCenter defaultCenter] postNotificationName:RCTOpenURLNotification
+    [[NSNotificationCenter defaultCenter] postNotificationName:kOpenURLNotification
                                                         object:self
                                                       userInfo:payload];
   }
@@ -94,13 +89,14 @@ RCT_EXPORT_METHOD(openURL:(NSURL *)URL
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(RCTPromiseRejectBlock)reject)
 {
-  // TODO: we should really return success/failure via a Promise reject/resolve here
-  // Doesn't really matter what thread we call this on since it exits the app
-  [[NSWorkspace sharedWorkspace] openURL:URL];
+  BOOL opened = [RCTSharedApplication() openURL:URL];
+  if (opened) {
+    resolve(nil);
+  } else {
+    reject(RCTErrorUnspecified, [NSString stringWithFormat:@"Unable to open URL: %@", URL], nil);
+  }
 }
 
-
-//TODO: implement canOpenURL or add different apis such as open File, launchApplication
 RCT_EXPORT_METHOD(canOpenURL:(NSURL *)URL
                   resolve:(RCTPromiseResolveBlock)resolve
                   reject:(__unused RCTPromiseRejectBlock)reject)
@@ -117,11 +113,10 @@ RCT_EXPORT_METHOD(canOpenURL:(NSURL *)URL
   // simply resolving with NO
 
   // This can be expensive, so we deliberately don't call on main thread
-  BOOL canOpen = YES; // TODO: actual checking
+  BOOL canOpen = [RCTSharedApplication() canOpenURL:URL];
   resolve(@(canOpen));
 }
 
-    /*
 RCT_EXPORT_METHOD(getInitialURL:(RCTPromiseResolveBlock)resolve
                   reject:(__unused RCTPromiseRejectBlock)reject)
 {
@@ -137,5 +132,5 @@ RCT_EXPORT_METHOD(getInitialURL:(RCTPromiseResolveBlock)resolve
   }
   resolve(RCTNullIfNil(initialURL.absoluteString));
 }
-*/
+
 @end

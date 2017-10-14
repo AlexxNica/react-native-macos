@@ -8,12 +8,12 @@
  */
 
 #import "RCTImageBlurUtils.h"
-#import "RCTImageUtils.h"
-#import "React/UIImageUtils.h"
 
-NSImage *RCTBlurredImageWithRadius(NSImage *inputImage, CGFloat radius)
+UIImage *RCTBlurredImageWithRadius(UIImage *inputImage, CGFloat radius)
 {
-  CGImageRef imageRef = RCTGetCGImage(inputImage);
+  CGImageRef imageRef = inputImage.CGImage;
+  CGFloat imageScale = inputImage.scale;
+  UIImageOrientation imageOrientation = inputImage.imageOrientation;
 
   // Image must be nonzero size
   if (CGImageGetWidth(imageRef) * CGImageGetHeight(imageRef) == 0) {
@@ -24,9 +24,9 @@ NSImage *RCTBlurredImageWithRadius(NSImage *inputImage, CGFloat radius)
   if (CGImageGetBitsPerPixel(imageRef) != 32 ||
       CGImageGetBitsPerComponent(imageRef) != 8 ||
       !((CGImageGetBitmapInfo(imageRef) & kCGBitmapAlphaInfoMask))) {
-    UIGraphicsBeginImageContextWithOptions(inputImage.size, NO, 1.0f); //TODO: real scale
-    [inputImage drawInRect:NSMakeRect(0, 0, inputImage.size.width, inputImage.size.height)];
-    imageRef = RCTGetCGImage(UIGraphicsGetImageFromCurrentImageContext());
+    UIGraphicsBeginImageContextWithOptions(inputImage.size, NO, inputImage.scale);
+    [inputImage drawAtPoint:CGPointZero];
+    imageRef = UIGraphicsGetImageFromCurrentImageContext().CGImage;
     UIGraphicsEndImageContext();
   }
 
@@ -41,7 +41,7 @@ NSImage *RCTBlurredImageWithRadius(NSImage *inputImage, CGFloat radius)
   // A description of how to compute the box kernel width from the Gaussian
   // radius (aka standard deviation) appears in the SVG spec:
   // http://www.w3.org/TR/SVG/filters.html#feGaussianBlurElement
-  uint32_t boxSize = floor((radius * 1 * 3 * sqrt(2 * M_PI) / 4 + 0.5) / 2);
+  uint32_t boxSize = floor((radius * imageScale * 3 * sqrt(2 * M_PI) / 4 + 0.5) / 2);
   boxSize |= 1; // Ensure boxSize is odd
 
   //create temp buffer
@@ -69,7 +69,7 @@ NSImage *RCTBlurredImageWithRadius(NSImage *inputImage, CGFloat radius)
 
   //create image from context
   imageRef = CGBitmapContextCreateImage(ctx);
-  NSImage *outputImage = [[NSImage alloc] initWithCGImage:imageRef size:inputImage.size];
+  UIImage *outputImage = [UIImage imageWithCGImage:imageRef scale:imageScale orientation:imageOrientation];
   CGImageRelease(imageRef);
   CGContextRelease(ctx);
   free(buffer1.data);

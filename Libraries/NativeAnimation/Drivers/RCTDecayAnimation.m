@@ -9,7 +9,7 @@
 
 #import "RCTDecayAnimation.h"
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 #import <React/RCTConvert.h>
 
 #import "RCTValueAnimatedNode.h"

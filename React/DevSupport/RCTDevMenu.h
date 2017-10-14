@@ -7,10 +7,17 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTBridge.h>
 #import <React/RCTBridgeModule.h>
+
+#if RCT_DEV
+
+RCT_EXTERN NSString *const RCTShowDevMenuNotification;
+
+#endif
+
 
 @class RCTDevMenuItem;
 
@@ -71,11 +78,6 @@
  */
 - (void)addItem:(RCTDevMenuItem *)item;
 
-/**
- * Update setting
- */
-- (void)updateSetting:(NSString *)name value:(id)value;
-
 @end
 
 typedef NSString *(^RCTDevMenuItemTitleBlock)(void);
@@ -83,16 +85,12 @@ typedef NSString *(^RCTDevMenuItemTitleBlock)(void);
 /**
  * Developer menu item, used to expose additional functionality via the menu.
  */
-@interface RCTDevMenuItem : NSMenuItem
+@interface RCTDevMenuItem : NSObject
 
 /**
  * This creates an item with a simple push-button interface, used to trigger an
  * action.
  */
-+ (instancetype)buttonItemWithTitle:(NSString *)title
-                             hotkey:(NSString *)hotkey
-                            handler:(dispatch_block_t)handler;
-
 + (instancetype)buttonItemWithTitle:(NSString *)title
                             handler:(dispatch_block_t)handler;
 
@@ -101,10 +99,6 @@ typedef NSString *(^RCTDevMenuItemTitleBlock)(void);
  * action. getTitleForPresentation is called each time the item is about to be
  * presented, and should return the item's title.
  */
-+ (instancetype)buttonItemWithTitleBlock:(RCTDevMenuItemTitleBlock)titleBlock
-                                  hotkey:(NSString *)hotkey
-                                 handler:(dispatch_block_t)handler;
-
 + (instancetype)buttonItemWithTitleBlock:(RCTDevMenuItemTitleBlock)titleBlock
                                  handler:(dispatch_block_t)handler;
 

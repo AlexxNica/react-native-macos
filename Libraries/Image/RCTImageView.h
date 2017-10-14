@@ -7,19 +7,20 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTResizeMode.h>
 
 @class RCTBridge;
 @class RCTImageSource;
 
-@interface RCTImageView : NSImageView
+@interface RCTImageView : UIImageView
 
 - (instancetype)initWithBridge:(RCTBridge *)bridge NS_DESIGNATED_INITIALIZER;
 
-@property (nonatomic, assign) NSEdgeInsets capInsets;
-@property (nonatomic, strong) NSImage *defaultImage;
+@property (nonatomic, assign) UIEdgeInsets capInsets;
+@property (nonatomic, strong) UIImage *defaultImage;
+@property (nonatomic, assign) UIImageRenderingMode renderingMode;
 @property (nonatomic, copy) NSArray<RCTImageSource *> *imageSources;
 @property (nonatomic, assign) CGFloat blurRadius;
 @property (nonatomic, assign) RCTResizeMode resizeMode;

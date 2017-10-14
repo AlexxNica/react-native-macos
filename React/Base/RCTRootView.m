@@ -26,7 +26,7 @@
 #import "RCTUIManager.h"
 #import "RCTUtils.h"
 #import "RCTView.h"
-#import "NSView+React.h"
+#import "UIView+React.h"
 
 #if TARGET_OS_TV
 #import "RCTTVRemoteHandler.h"
@@ -45,7 +45,6 @@ NSString *const RCTContentDidAppearNotification = @"RCTContentDidAppearNotificat
 {
   RCTBridge *_bridge;
   NSString *_moduleName;
-  NSDictionary *_launchOptions;
   RCTRootContentView *_contentView;
   BOOL _passThroughTouches;
   CGSize _intrinsicContentSize;
@@ -64,17 +63,8 @@ NSString *const RCTContentDidAppearNotification = @"RCTContentDidAppearNotificat
     [bridge.performanceLogger markStartForTag:RCTPLTTI];
   }
 
-  // TODO: Turn on layer backing just to avoid https://github.com/ptmt/react-native-macos/issues/47
-  // Maybe we could turn it off after the bug fixed in the future.
-  if (([self window].styleMask & NSFullSizeContentViewWindowMask) != NSFullSizeContentViewWindowMask
-        && [self window].contentView == self) {
-        [self setWantsLayer:YES];
-  }
-
   if (self = [super initWithFrame:CGRectZero]) {
-    self.backgroundColor = [NSColor whiteColor];
-
-    [self setNeedsLayout:NO];
+    self.backgroundColor = [UIColor whiteColor];
 
     _bridge = bridge;
     _moduleName = moduleName;
@@ -142,26 +132,10 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 }
 #endif
 
-- (void)viewDidMoveToWindow
+- (void)setBackgroundColor:(UIColor *)backgroundColor
 {
-  [super viewDidMoveToWindow];
-  NSTrackingArea *trackingArea = [[NSTrackingArea alloc] initWithRect:NSZeroRect
-                                                              options:NSTrackingActiveInActiveApp | NSTrackingMouseEnteredAndExited | NSTrackingMouseMoved | NSTrackingInVisibleRect
-                                                                owner:self
-                                                             userInfo:nil];
-
-  [self addTrackingArea:trackingArea];
-}
-
-- (void)mouseMoved:(NSEvent *)theEvent
-{
-  [[_contentView touchHandler] mouseMoved:theEvent];
-  // [((RCTTouchHandler *)self.gestureRecognizers.firstObject) mouseMoved:theEvent];
-}
-
-- (void)setBackgroundColor:(NSColor *)backgroundColor
-{
-  [super.layer setBackgroundColor:[backgroundColor CGColor]];
+  super.backgroundColor = backgroundColor;
+  _contentView.backgroundColor = backgroundColor;
 }
 
 #pragma mark - passThroughTouches
@@ -199,13 +173,17 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   return fitSize;
 }
 
-- (void)layout
+- (void)layoutSubviews
 {
-  [super layout];
+  [super layoutSubviews];
   _contentView.frame = self.bounds;
+  _loadingView.center = (CGPoint){
+    CGRectGetMidX(self.bounds),
+    CGRectGetMidY(self.bounds)
+  };
 }
 
-- (NSViewController *)reactViewController
+- (UIViewController *)reactViewController
 {
   return _reactViewController ?: [super reactViewController];
 }
@@ -215,12 +193,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   return YES;
 }
 
-- (BOOL)isFlipped
-{
-  return NO;
-}
-
-- (void)setLoadingView:(NSView *)loadingView
+- (void)setLoadingView:(UIView *)loadingView
 {
   _loadingView = loadingView;
   if (!_contentView.contentHasAppeared) {
@@ -239,11 +212,23 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 - (void)hideLoadingView
 {
   if (_loadingView.superview == self && _contentView.contentHasAppeared) {
-    dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(_loadingViewFadeDelay * NSEC_PER_SEC)),
-                   dispatch_get_main_queue(), ^{
+    if (_loadingViewFadeDuration > 0) {
+      dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(_loadingViewFadeDelay * NSEC_PER_SEC)),
+                     dispatch_get_main_queue(), ^{
 
+                       [UIView transitionWithView:self
+                                         duration:self->_loadingViewFadeDuration
+                                          options:UIViewAnimationOptionTransitionCrossDissolve
+                                       animations:^{
+                                         self->_loadingView.hidden = YES;
+                                       } completion:^(__unused BOOL finished) {
+                                         [self->_loadingView removeFromSuperview];
+                                       }];
+                     });
+    } else {
       _loadingView.hidden = YES;
-    });
+      [_loadingView removeFromSuperview];
+    }
   }
 }
 
@@ -289,10 +274,6 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
     return;
   }
 
-  NSViewController *rootController = [NSViewController new];
-  rootController.view = self;
-  _reactViewController = rootController;
-
   [_contentView removeFromSuperview];
   _contentView = [[RCTRootContentView alloc] initWithFrame:self.bounds
                                                     bridge:bridge
@@ -300,9 +281,9 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
                                             sizeFlexiblity:_sizeFlexibility];
   [self runApplication:bridge];
 
-  _contentView.layer.backgroundColor = self.layer.backgroundColor;
+  _contentView.backgroundColor = self.backgroundColor;
   _contentView.passThroughTouches = _passThroughTouches;
-  [self addSubview:_contentView];
+  [self insertSubview:_contentView atIndex:0];
 
   if (_sizeFlexibility == RCTRootViewSizeFlexibilityNone) {
     self.intrinsicContentSize = self.bounds.size;
@@ -331,19 +312,18 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   }
 
   _sizeFlexibility = sizeFlexibility;
-  [self setNeedsLayout:YES];
+  [self setNeedsLayout];
   _contentView.sizeFlexibility = _sizeFlexibility;
 }
 
-- (NSView *)hitTest:(CGPoint)point withEvent:(NSEvent *)event
+- (UIView *)hitTest:(CGPoint)point withEvent:(UIEvent *)event
 {
   // The root view itself should never receive touches
-//  NSView *hitView = [super hitTest:point withEvent:event];
-//  if (self.passThroughTouches && hitView == self) {
-//    return nil;
-//  }
-//  return hitView;
-  return nil;
+  UIView *hitView = [super hitTest:point withEvent:event];
+  if (self.passThroughTouches && hitView == self) {
+    return nil;
+  }
+  return hitView;
 }
 
 - (void)setAppProperties:(NSDictionary *)appProperties
@@ -372,7 +352,7 @@ RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
   _intrinsicContentSize = intrinsicContentSize;
 
   [self invalidateIntrinsicContentSize];
-  [self.superview setNeedsLayout: YES];
+  [self.superview setNeedsLayout];
 
   // Don't notify the delegate if the content remains invisible or its size has not changed
   if (bothSizesHaveAZeroDimension || sizesAreEqual) {

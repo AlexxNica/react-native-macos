@@ -7,7 +7,7 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 @interface RCTTabBar : UIView
 
@@ -15,5 +15,8 @@
 @property (nonatomic, strong) UIColor *tintColor;
 @property (nonatomic, strong) UIColor *barTintColor;
 @property (nonatomic, assign) BOOL translucent;
+#if !TARGET_OS_TV
+@property (nonatomic, assign) UIBarStyle barStyle;
+#endif
 
 @end

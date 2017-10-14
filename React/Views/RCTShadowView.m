@@ -12,8 +12,8 @@
 #import "RCTConvert.h"
 #import "RCTLog.h"
 #import "RCTUtils.h"
-#import "NSView+Private.h"
-#import "NSView+React.h"
+#import "UIView+Private.h"
+#import "UIView+React.h"
 
 typedef void (^RCTActionBlock)(RCTShadowView *shadowViewSelf, id value);
 typedef void (^RCTResetActionBlock)(RCTShadowView *shadowViewSelf);
@@ -66,7 +66,7 @@ typedef NS_ENUM(unsigned int, meta_prop_t) {
 static void RCTPrint(YGNodeRef node)
 {
   RCTShadowView *shadowView = (__bridge RCTShadowView *)YGNodeGetContext(node);
-  printf("%s(%zd), ", shadowView.viewName.UTF8String, shadowView.reactTag.integerValue);
+  printf("%s(%lld), ", shadowView.viewName.UTF8String, (long long)shadowView.reactTag.integerValue);
 }
 
 #define RCT_SET_YGVALUE(ygvalue, setter, ...)    \
@@ -165,9 +165,16 @@ static void RCTProcessMetaPropsBorder(const YGValue metaProps[META_PROP_COUNT], 
   if (!YGNodeGetHasNewLayout(node)) {
     return;
   }
-  YGNodeSetHasNewLayout(node, false);
 
   RCTAssert(!YGNodeIsDirty(node), @"Attempt to get layout metrics from dirtied Yoga node.");
+
+  YGNodeSetHasNewLayout(node, false);
+
+  if (YGNodeStyleGetDisplay(node) == YGDisplayNone) {
+    // If the node is hidden (has `display: none;`), its (and its descendants)
+    // layout metrics are invalid and/or dirtied, so we have to stop here.
+    return;
+  }
 
 #if RCT_DEBUG
   // This works around a breaking change in Yoga layout where setting flexBasis needs to be set explicitly, instead of relying on flex to propagate.
@@ -197,8 +204,13 @@ static void RCTProcessMetaPropsBorder(const YGValue metaProps[META_PROP_COUNT], 
     RCTRoundPixelValue(absoluteBottomRight.y - absoluteTopLeft.y)
   }};
 
-  if (!CGRectEqualToRect(frame, _frame)) {
+  // Even if `YGNodeLayoutGetDirection` can return `YGDirectionInherit` here, it actually means
+  // that Yoga will use LTR layout for the view (even if layout process is not finished yet).
+  UIUserInterfaceLayoutDirection updatedLayoutDirection = YGNodeLayoutGetDirection(_yogaNode) == YGDirectionRTL ? UIUserInterfaceLayoutDirectionRightToLeft : UIUserInterfaceLayoutDirectionLeftToRight;
+
+  if (!CGRectEqualToRect(frame, _frame) || _layoutDirection != updatedLayoutDirection) {
     _frame = frame;
+    _layoutDirection = updatedLayoutDirection;
     [viewsWithNewFrame addObject:self];
   }
 
@@ -230,21 +242,19 @@ static void RCTProcessMetaPropsBorder(const YGValue metaProps[META_PROP_COUNT], 
   if (_didUpdateSubviews) {
     _didUpdateSubviews = NO;
     [self didUpdateReactSubviews];
-    [applierBlocks addObject:^(NSDictionary<NSNumber *, NSView *> *viewRegistry) {
-      NSView *view = viewRegistry[self->_reactTag];
-      [view clearSortedSubviews];
+    [applierBlocks addObject:^(NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+      UIView *view = viewRegistry[self->_reactTag];
       [view didUpdateReactSubviews];
     }];
   }
 
   if (!_backgroundColor) {
-    NSColor *parentBackgroundColor = parentProperties[RCTBackgroundColorProp];
+    UIColor *parentBackgroundColor = parentProperties[RCTBackgroundColorProp];
     if (parentBackgroundColor) {
-      // TODO: fix this
-      // [applierBlocks addObject:^(NSDictionary<NSNumber *, UIView *> *viewRegistry) {
-      //   UIView *view = viewRegistry[self->_reactTag];
-      //   [view reactSetInheritedBackgroundColor:parentBackgroundColor];
-      // }];
+      [applierBlocks addObject:^(NSDictionary<NSNumber *, UIView *> *viewRegistry) {
+        UIView *view = viewRegistry[self->_reactTag];
+        [view reactSetInheritedBackgroundColor:parentBackgroundColor];
+      }];
     }
   } else {
     // Update parent properties for children
@@ -252,7 +262,7 @@ static void RCTProcessMetaPropsBorder(const YGValue metaProps[META_PROP_COUNT], 
     CGFloat alpha = CGColorGetAlpha(_backgroundColor.CGColor);
     if (alpha < 1.0) {
       // If bg is non-opaque, don't propagate further
-      properties[RCTBackgroundColorProp] = [NSColor clearColor];
+      properties[RCTBackgroundColorProp] = [UIColor clearColor];
     } else {
       properties[RCTBackgroundColorProp] = _backgroundColor;
     }
@@ -342,7 +352,7 @@ static void RCTProcessMetaPropsBorder(const YGValue metaProps[META_PROP_COUNT], 
       _borderMetaProps[ii] = YGValueUndefined;
     }
 
-    _intrinsicContentSize = CGSizeMake(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric);
+    _intrinsicContentSize = CGSizeMake(UIViewNoIntrinsicMetric, UIViewNoIntrinsicMetric);
 
     _newView = YES;
     _propagationLifecycle = RCTUpdateLifecycleUninitialized;
@@ -365,6 +375,11 @@ static void RCTProcessMetaPropsBorder(const YGValue metaProps[META_PROP_COUNT], 
 - (void)dealloc
 {
   YGNodeFree(_yogaNode);
+}
+
+- (BOOL)canHaveSubviews
+{
+  return YES;
 }
 
 - (BOOL)isYogaLeafNode
@@ -405,6 +420,8 @@ static void RCTProcessMetaPropsBorder(const YGValue metaProps[META_PROP_COUNT], 
 
 - (void)insertReactSubview:(RCTShadowView *)subview atIndex:(NSInteger)atIndex
 {
+  RCTAssert(self.canHaveSubviews, @"Attempt to insert subview inside leaf view.");
+
   [_reactSubviews insertObject:subview atIndex:atIndex];
   if (![self isYogaLeafNode]) {
     YGNodeInsertChild(_yogaNode, subview.yogaNode, (uint32_t)atIndex);
@@ -454,9 +471,7 @@ static void RCTProcessMetaPropsBorder(const YGValue metaProps[META_PROP_COUNT], 
 - (NSString *)description
 {
   NSString *description = super.description;
-  description = [[description substringToIndex:description.length - 1]
-                 stringByAppendingFormat:@"; viewName: %@; reactTag: %@; frame: %f; %f;>",
-                 self.viewName, self.reactTag, self.frame.size.height, self.frame.size.width];
+  description = [[description substringToIndex:description.length - 1] stringByAppendingFormat:@"; viewName: %@; reactTag: %@; frame: %@>", self.viewName, self.reactTag, NSStringFromCGRect(self.frame)];
   return description;
 }
 
@@ -479,14 +494,6 @@ static void RCTProcessMetaPropsBorder(const YGValue metaProps[META_PROP_COUNT], 
   NSMutableString *description = [NSMutableString string];
   [self addRecursiveDescriptionToString:description atLevel:0];
   return description;
-}
-
-// Layout Direction
-
-- (NSUserInterfaceLayoutDirection)effectiveLayoutDirection {
-  // Even if `YGNodeLayoutGetDirection` can return `YGDirectionInherit` here, it actually means
-  // that Yoga will use LTR layout for the view (even if layout process is not finished yet).
-  return YGNodeLayoutGetDirection(_yogaNode) == YGDirectionRTL ? NSUserInterfaceLayoutDirectionRightToLeft : NSUserInterfaceLayoutDirectionLeftToRight;
 }
 
 // Margin
@@ -530,16 +537,6 @@ RCT_PADDING_PROPERTY(Top, TOP)
 RCT_PADDING_PROPERTY(Left, LEFT)
 RCT_PADDING_PROPERTY(Bottom, BOTTOM)
 RCT_PADDING_PROPERTY(Right, RIGHT)
-
-- (NSEdgeInsets)paddingAsInsets
-{
-  return (NSEdgeInsets){
-    YGNodeLayoutGetPadding(_yogaNode, YGEdgeTop),
-    YGNodeLayoutGetPadding(_yogaNode, YGEdgeLeft),
-    YGNodeLayoutGetPadding(_yogaNode, YGEdgeBottom),
-    YGNodeLayoutGetPadding(_yogaNode, YGEdgeRight)
-  };
-}
 
 // Border
 
@@ -675,13 +672,20 @@ static inline YGSize RCTShadowViewMeasure(YGNodeRef node, float width, YGMeasure
 
   _intrinsicContentSize = intrinsicContentSize;
 
-  if (CGSizeEqualToSize(_intrinsicContentSize, CGSizeMake(NSViewNoIntrinsicMetric, NSViewNoIntrinsicMetric))) {
+  if (CGSizeEqualToSize(_intrinsicContentSize, CGSizeMake(UIViewNoIntrinsicMetric, UIViewNoIntrinsicMetric))) {
     YGNodeSetMeasureFunc(_yogaNode, NULL);
   } else {
     YGNodeSetMeasureFunc(_yogaNode, RCTShadowViewMeasure);
   }
 
   YGNodeMarkDirty(_yogaNode);
+}
+
+// Local Data
+
+- (void)setLocalData:(__unused NSObject *)localData
+{
+  // Do nothing by default.
 }
 
 // Flex
@@ -721,7 +725,7 @@ RCT_STYLE_PROPERTY(Display, display, Display, YGDisplay)
 RCT_STYLE_PROPERTY(Direction, direction, Direction, YGDirection)
 RCT_STYLE_PROPERTY(AspectRatio, aspectRatio, AspectRatio, float)
 
-- (void)setBackgroundColor:(NSColor *)color
+- (void)setBackgroundColor:(UIColor *)color
 {
   _backgroundColor = color;
   [self dirtyPropagation];
@@ -756,22 +760,6 @@ RCT_STYLE_PROPERTY(AspectRatio, aspectRatio, AspectRatio, float)
   _recomputeMargin = NO;
   _recomputePadding = NO;
   _recomputeBorder = NO;
-}
-
-@end
-
-@implementation RCTShadowView (Deprecated)
-
-- (YGNodeRef)cssNode
-{
-  RCTLogWarn(@"Calling deprecated `[-RCTShadowView cssNode]`.");
-  return _yogaNode;
-}
-
-- (BOOL)isCSSLeafNode
-{
-  RCTLogWarn(@"Calling deprecated `[-RCTShadowView isCSSLeafNode]`.");
-  return self.isYogaLeafNode;
 }
 
 @end

@@ -23,7 +23,7 @@ extern NSString *const RCTReactTagAttributeName;
 
 @interface RCTShadowText : RCTShadowView
 
-@property (nonatomic, strong) NSColor *color;
+@property (nonatomic, strong) UIColor *color;
 @property (nonatomic, copy) NSString *fontFamily;
 @property (nonatomic, assign) CGFloat fontSize;
 @property (nonatomic, copy) NSString *fontWeight;
@@ -37,7 +37,7 @@ extern NSString *const RCTReactTagAttributeName;
 @property (nonatomic, assign) CGSize shadowOffset;
 @property (nonatomic, assign) NSTextAlignment textAlign;
 @property (nonatomic, assign) NSWritingDirection writingDirection;
-@property (nonatomic, strong) NSColor *textDecorationColor;
+@property (nonatomic, strong) UIColor *textDecorationColor;
 @property (nonatomic, assign) NSUnderlineStyle textDecorationStyle;
 @property (nonatomic, assign) RCTTextDecorationLineType textDecorationLine;
 @property (nonatomic, assign) CGFloat fontSizeMultiplier;
@@ -45,7 +45,7 @@ extern NSString *const RCTReactTagAttributeName;
 @property (nonatomic, assign) CGFloat opacity;
 @property (nonatomic, assign) CGSize textShadowOffset;
 @property (nonatomic, assign) CGFloat textShadowRadius;
-@property (nonatomic, strong) NSColor *textShadowColor;
+@property (nonatomic, strong) UIColor *textShadowColor;
 @property (nonatomic, assign) BOOL adjustsFontSizeToFit;
 @property (nonatomic, assign) CGFloat minimumFontScale;
 @property (nonatomic, assign) BOOL selectable;

@@ -17,7 +17,7 @@
 
 RCT_EXPORT_MODULE()
 
-- (NSView *)view
+- (UIView *)view
 {
   return [RCTPicker new];
 }
@@ -25,7 +25,7 @@ RCT_EXPORT_MODULE()
 RCT_EXPORT_VIEW_PROPERTY(items, NSArray<NSDictionary *>)
 RCT_EXPORT_VIEW_PROPERTY(selectedIndex, NSInteger)
 RCT_EXPORT_VIEW_PROPERTY(onChange, RCTBubblingEventBlock)
-RCT_EXPORT_VIEW_PROPERTY(color, NSColor)
+RCT_EXPORT_VIEW_PROPERTY(color, UIColor)
 RCT_EXPORT_VIEW_PROPERTY(textAlign, NSTextAlignment)
 RCT_CUSTOM_VIEW_PROPERTY(fontSize, NSNumber, RCTPicker)
 {
@@ -42,15 +42,6 @@ RCT_CUSTOM_VIEW_PROPERTY(fontStyle, NSString, __unused RCTPicker)
 RCT_CUSTOM_VIEW_PROPERTY(fontFamily, NSString, RCTPicker)
 {
   view.font = [RCTFont updateFont:view.font withFamily:json ?: defaultView.font.familyName];
-}
-
-- (NSDictionary<NSString *, id> *)constantsToExport
-{
-  NSComboBox *view = [NSComboBox new];
-  return @{
-    @"ComponentHeight": @(view.intrinsicContentSize.height),
-    @"ComponentWidth": @(view.intrinsicContentSize.width)
-  };
 }
 
 @end

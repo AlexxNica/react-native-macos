@@ -15,8 +15,7 @@
 
 @class RCTBridge;
 @class RCTShadowView;
-@class RCTViewManager;
-@class NSView;
+@class UIView;
 
 @interface RCTComponentData : NSObject
 
@@ -27,7 +26,7 @@
 - (instancetype)initWithManagerClass:(Class)managerClass
                               bridge:(RCTBridge *)bridge NS_DESIGNATED_INITIALIZER;
 
-- (NSView *)createViewWithTag:(NSNumber *)tag;
+- (UIView *)createViewWithTag:(NSNumber *)tag;
 - (RCTShadowView *)createShadowViewWithTag:(NSNumber *)tag;
 - (void)setProps:(NSDictionary<NSString *, id> *)props forView:(id<RCTComponent>)view;
 - (void)setProps:(NSDictionary<NSString *, id> *)props forShadowView:(RCTShadowView *)shadowView;

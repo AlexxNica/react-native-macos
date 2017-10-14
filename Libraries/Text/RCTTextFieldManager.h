@@ -12,8 +12,3 @@
 @interface RCTTextFieldManager : RCTViewManager
 
 @end
-
-@interface RCTSecureTextFieldManager : RCTViewManager
-
-@end
-

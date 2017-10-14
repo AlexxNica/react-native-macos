@@ -10,7 +10,7 @@
 #import "RCTDatePicker.h"
 
 #import "RCTUtils.h"
-#import "NSView+React.h"
+#import "UIView+React.h"
 
 @interface RCTDatePicker ()
 
@@ -23,21 +23,18 @@
 - (instancetype)initWithFrame:(CGRect)frame
 {
   if ((self = [super initWithFrame:frame])) {
-    [self setTarget:self];
-    [self setAction:@selector(didChange:)];
+    [self addTarget:self action:@selector(didChange)
+               forControlEvents:UIControlEventValueChanged];
   }
   return self;
 }
 
 RCT_NOT_IMPLEMENTED(- (instancetype)initWithCoder:(NSCoder *)aDecoder)
 
-- (void)didChange:(__unused id)sender
+- (void)didChange
 {
   if (_onChange) {
-    _onChange(@{
-      @"timestamp": @(self.dateValue.timeIntervalSince1970 * 1000.0),
-      @"timeInterval": @(self.timeInterval)
-    });
+    _onChange(@{ @"timestamp": @(self.date.timeIntervalSince1970 * 1000.0) });
   }
 }
 

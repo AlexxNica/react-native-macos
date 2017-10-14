@@ -8,9 +8,8 @@
  */
 
 #import <Foundation/Foundation.h>
-#import "AppKit/AppKit.h"
 
-//@class CVDisplayLink;
+@class CADisplayLink;
 
 /**
  * Interface containing the information about the last screen refresh.
@@ -20,15 +19,14 @@
 /**
  * Timestamp for the actual screen refresh
  */
-@property (nonatomic, readonly) CFTimeInterval timestamp;
+@property (nonatomic, readonly) NSTimeInterval timestamp;
 
 /**
  * Time since the last frame update ( >= 16.6ms )
  */
-@property (nonatomic, readonly) CFTimeInterval deltaTime;
+@property (nonatomic, readonly) NSTimeInterval deltaTime;
 
-//- (instancetype)initWithDisplayLink:(CVDisplayLinkRef)displayLink NS_DESIGNATED_INITIALIZER;
-- (instancetype)initWithTimer:(NSTimer*)timer NS_DESIGNATED_INITIALIZER;
+- (instancetype)initWithDisplayLink:(CADisplayLink *)displayLink NS_DESIGNATED_INITIALIZER;
 
 @end
 

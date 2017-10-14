@@ -7,7 +7,7 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
+#import <UIKit/UIKit.h>
 
 /**
  * Contains any methods related to scrolling. Any `RCTView` that has scrolling
@@ -17,7 +17,6 @@
 
 @property (nonatomic, readonly) CGSize contentSize;
 
-- (void)scrollWheel:(NSEvent *)theEvent;
 - (void)scrollToOffset:(CGPoint)offset;
 - (void)scrollToOffset:(CGPoint)offset animated:(BOOL)animated;
 /**
@@ -27,7 +26,7 @@
 - (void)scrollToEnd:(BOOL)animated;
 - (void)zoomToRect:(CGRect)rect animated:(BOOL)animated;
 
-//- (void)addScrollListener:(NSObject<UIScrollViewDelegate> *)scrollListener;
-//- (void)removeScrollListener:(NSObject<UIScrollViewDelegate> *)scrollListener;
+- (void)addScrollListener:(NSObject<UIScrollViewDelegate> *)scrollListener;
+- (void)removeScrollListener:(NSObject<UIScrollViewDelegate> *)scrollListener;
 
 @end

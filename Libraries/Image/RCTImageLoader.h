@@ -7,18 +7,15 @@
  * of patent rights can be found in the PATENTS file in the same directory.
  */
 
-#import <AppKit/AppKit.h>
-#import <QuartzCore/CAAnimation.h>
+#import <UIKit/UIKit.h>
 
 #import <React/RCTBridge.h>
 #import <React/RCTResizeMode.h>
 #import <React/RCTURLRequestHandler.h>
-#import "React/UIImageUtils.h"
 
 typedef void (^RCTImageLoaderProgressBlock)(int64_t progress, int64_t total);
-typedef void (^RCTImageLoaderPartialLoadBlock)(NSImage *image);
-typedef void (^RCTImageLoaderCompletionBlock)(NSError *error, NSImage *image);
-
+typedef void (^RCTImageLoaderPartialLoadBlock)(UIImage *image);
+typedef void (^RCTImageLoaderCompletionBlock)(NSError *error, UIImage *image);
 typedef dispatch_block_t RCTImageLoaderCancellationBlock;
 
 /**
@@ -26,13 +23,13 @@ typedef dispatch_block_t RCTImageLoaderCancellationBlock;
  */
 @protocol RCTImageCache <NSObject>
 
-- (NSImage *)imageForUrl:(NSString *)url
+- (UIImage *)imageForUrl:(NSString *)url
                     size:(CGSize)size
                    scale:(CGFloat)scale
               resizeMode:(RCTResizeMode)resizeMode
             responseDate:(NSString *)responseDate;
 
-- (void)addImageToCache:(NSImage *)image
+- (void)addImageToCache:(UIImage *)image
                     URL:(NSString *)url
                    size:(CGSize)size
                   scale:(CGFloat)scale
@@ -41,7 +38,7 @@ typedef dispatch_block_t RCTImageLoaderCancellationBlock;
 
 @end
 
-@interface NSImage (React)
+@interface UIImage (React)
 
 @property (nonatomic, copy) CAKeyframeAnimation *reactKeyframeAnimation;
 
@@ -119,6 +116,13 @@ typedef dispatch_block_t RCTImageLoaderCancellationBlock;
  */
 - (RCTImageLoaderCancellationBlock)getImageSizeForURLRequest:(NSURLRequest *)imageURLRequest
                                                        block:(void(^)(NSError *error, CGSize size))completionBlock;
+
+/**
+ * Allows developers to set their own caching implementation for
+ * decoded images as long as it conforms to the RCTImageCacheDelegate
+ * protocol. This method should be called in bridgeDidInitializeModule.
+ */
+- (void)setImageCache:(id<RCTImageCache>)cache;
 
 @end
 

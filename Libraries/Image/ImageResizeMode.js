@@ -11,6 +11,9 @@
  */
 'use strict';
 
+/* $FlowFixMe(>=0.54.0 site=react_native_oss) This comment suppresses an error
+ * found when Flow v0.54 was deployed. To see the error delete this comment and
+ * run Flow. */
 var keyMirror = require('fbjs/lib/keyMirror');
 
 /**
@@ -19,15 +22,15 @@ var keyMirror = require('fbjs/lib/keyMirror');
  */
 var ImageResizeMode = keyMirror({
   /**
-   * cover - The image will be resized such that the entire area of the view
-   * is covered by the image, potentially clipping parts of the image.
-   */
-  cover: null,
-  /**
    * contain - The image will be resized such that it will be completely
    * visible, contained within the frame of the View.
    */
   contain: null,
+  /**
+   * cover - The image will be resized such that the entire area of the view
+   * is covered by the image, potentially clipping parts of the image.
+   */
+  cover: null,
   /**
    * stretch - The image will be stretched to fill the entire frame of the
    * view without clipping. This may change the aspect ratio of the image,

@@ -27,7 +27,7 @@ typedef id<RCTBridgeModule>(^RCTBridgeModuleProvider)(void);
                              bridge:(RCTBridge *)bridge NS_DESIGNATED_INITIALIZER;
 
 - (instancetype)initWithModuleInstance:(id<RCTBridgeModule>)instance
-                                bridge:(RCTBridge *)bridge;
+                                bridge:(RCTBridge *)bridge NS_DESIGNATED_INITIALIZER;
 
 /**
  * Calls `constantsToExport` on the module and stores the result. Note that
@@ -36,20 +36,6 @@ typedef id<RCTBridgeModule>(^RCTBridgeModuleProvider)(void);
  * module implements `constantsToExport`.
  */
 - (void)gatherConstants;
-
-/**
- * Sets the bridge for the module instance. This is only needed when using the
- * `initWithModuleInstance:bridge:` constructor. Otherwise, the bridge will be set
- * automatically when the module is first accessed.
- */
-- (void)setBridgeForInstance;
-
-/**
- * Sets the methodQueue and performs the remaining setup for the module. This is
- * only needed when using the `initWithModuleInstance:bridge:` constructor.
- * Otherwise it will be done automatically when the module is first accessed.
- */
-- (void)finishSetupForInstance;
 
 @property (nonatomic, strong, readonly) Class moduleClass;
 @property (nonatomic, copy, readonly) NSString *name;
@@ -73,7 +59,7 @@ typedef id<RCTBridgeModule>(^RCTBridgeModuleProvider)(void);
 /**
  * Returns YES if module instance must be created on the main thread.
  */
-@property (nonatomic, assign, readonly) BOOL requiresMainQueueSetup;
+@property (nonatomic, assign) BOOL requiresMainQueueSetup;
 
 /**
  * Returns YES if module has constants to export.
